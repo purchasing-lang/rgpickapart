@@ -261,19 +261,21 @@ def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> d
             db.table("vehicles").upsert(batch[i:i+100], on_conflict="stock").execute()
         log.info("Inserted %d new vehicles in %d batches", len(batch), -(-len(batch)//100))
 
-    # ── STILL PRESENT — update row + last_seen in batches ─────────────────────
+    # ── STILL PRESENT — update last_seen + row in batches ────────────────────
+    # Use update (NOT upsert) to avoid touching NOT NULL cols like first_seen_date
     still_present = [v for v in vehicles if v["stock"] in (current_stocks & prev_stocks)]
-    updates = [
-        {
-            "stock":          v["stock"],
-            "row":            v["row"],
+    for i in range(0, len(still_present), 100):
+        chunk_stocks = [v["stock"] for v in still_present[i:i+100]]
+        db.table("vehicles").update({
             "last_seen_date": today.isoformat(),
-            "raw_text":       v["raw_text"],
-        }
-        for v in still_present
-    ]
-    for i in range(0, len(updates), 100):
-        db.table("vehicles").upsert(updates[i:i+100], on_conflict="stock").execute()
+        }).in_("stock", chunk_stocks).execute()
+    # Update row + raw_text only where row is known
+    for v in still_present:
+        if v["row"] is not None:
+            db.table("vehicles").update({
+                "row":      v["row"],
+                "raw_text": v["raw_text"],
+            }).eq("stock", v["stock"]).execute()
 
     # ── REMOVED — single call ─────────────────────────────────────────────────
     removed_stocks = prev_stocks - current_stocks
