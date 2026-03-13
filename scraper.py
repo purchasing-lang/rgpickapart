@@ -288,14 +288,14 @@ def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> d
         }).in_("stock", list(removed_stocks)).execute()
 
     # ── Daily snapshot ─────────────────────────────────────────────────────────
-    db.table("daily_snapshots").insert({
+    db.table("daily_snapshots").upsert({
         "snapshot_date":  today.isoformat(),
         "total_active":   len(current_stocks),
         "added_count":    len(new_stocks),
         "removed_count":  len(removed_stocks),
         "added_stocks":   list(new_stocks),
         "removed_stocks": list(removed_stocks),
-    }).execute()
+    }, on_conflict="snapshot_date").execute()
 
     return {
         "added":          len(new_stocks),
