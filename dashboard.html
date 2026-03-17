@@ -1250,6 +1250,7 @@ function switchTab(name, btn){
   document.getElementById("filterBar").style.display = showFilter ? "flex" : "none";
 
   if(name==="flagged") loadFlagged();
+  if(name==="parts") loadParts();
 }
 
 function refreshCurrentTab(){
