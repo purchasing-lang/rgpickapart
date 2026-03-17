@@ -47,6 +47,22 @@ CREATE TABLE IF NOT EXISTS daily_snapshots (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── Vehicle flags & checklist (one row per flagged stock) ────────────────────
+-- If this table already exists without checklist_status, only the ALTER TABLE
+-- line below needs to run — it is safe to run on an existing table.
+CREATE TABLE IF NOT EXISTS vehicle_flags (
+    stock               INTEGER PRIMARY KEY REFERENCES vehicles(stock) ON DELETE CASCADE,
+    flag                TEXT NOT NULL,          -- 'interested' | 'worked' | 'incorrect'
+    note                TEXT DEFAULT '',        -- free-text note shown on checklist
+    checklist_status    TEXT,                   -- 'complete' | 'broken' | 'not_there' | 'couldnt_remove'
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Migration: run this if vehicle_flags already exists but is missing checklist_status
+ALTER TABLE vehicle_flags ADD COLUMN IF NOT EXISTS checklist_status TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_vehicle_flags_flag ON vehicle_flags (flag);
+
 -- ── Indexes ───────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_vehicles_active       ON vehicles (is_active);
 CREATE INDEX IF NOT EXISTS idx_vehicles_first_seen   ON vehicles (first_seen_date DESC);

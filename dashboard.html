@@ -390,20 +390,34 @@ function debounceNote(stock,note){
 }
 
 async function setFlag(stock, val, note){
-  const existingNote = note !== undefined ? note : getNote(stock);
+  const isNew = !getFlag(stock); // check before cache update
   if(val===null){
     delete _flagCache[stock];
     await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?stock=eq.${stock}`,{
       method:"DELETE", headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
     });
   } else {
+    const existingNote = note !== undefined ? note : getNote(stock);
     _flagCache[stock] = {flag:val, note:existingNote};
-    await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags`,{
-      method:"POST",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,
-                "Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
-      body: JSON.stringify({stock:Number(stock), flag:val, note:existingNote, updated_at:new Date().toISOString()})
-    });
+    if(isNew){
+      // New flag row — POST with note, explicit conflict column so upsert works
+      // even if stock is not the table's primary key
+      await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?on_conflict=stock`,{
+        method:"POST",
+        headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,
+                  "Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
+        body: JSON.stringify({stock:Number(stock), flag:val, note:existingNote||"", updated_at:new Date().toISOString()})
+      });
+    } else {
+      // Cycling an existing flag — PATCH only the flag field so saveNote's
+      // concurrent PATCH can never be overwritten by this request
+      await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?stock=eq.${stock}`,{
+        method:"PATCH",
+        headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,
+                  "Content-Type":"application/json","Prefer":"return=minimal"},
+        body: JSON.stringify({flag:val, updated_at:new Date().toISOString()})
+      });
+    }
   }
   updateFlaggedCount();
 }
@@ -415,7 +429,7 @@ async function saveNote(stock, note){
   await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?stock=eq.${stock}`,{
     method:"PATCH",
     headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,
-              "Content-Type":"application/json"},
+              "Content-Type":"application/json","Prefer":"return=minimal"},
     body: JSON.stringify({note, updated_at:new Date().toISOString()})
   });
 }

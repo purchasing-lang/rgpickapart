@@ -263,16 +263,19 @@ def get_all_known_stocks() -> set[int]:
 def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> dict:
     current_stocks = {v["stock"] for v in vehicles}
 
+    # Always load all_known regardless of snapshot state — this is what prevents
+    # baseline vehicles (loaded outside the scraper, or on a no-snapshot first run)
+    # from being counted as new on every subsequent run.
+    all_known = get_all_known_stocks()
+
     last_snapshot = get_last_snapshot()
     if last_snapshot:
         prev_active  = get_active_stocks()        # stocks active on last run  (paginated)
-        all_known    = get_all_known_stocks()      # every stock ever in the DB  (paginated)
         days_skipped = (today - date.fromisoformat(last_snapshot["snapshot_date"])).days - 1
         if days_skipped > 0:
             log.warning("Missed %d day(s) since last scrape — gap noted, comparisons still valid", days_skipped)
     else:
         prev_active = set()
-        all_known   = set()
 
     # ── TRULY NEW — stock number has never appeared in the vehicles table ─────
     new_stocks   = current_stocks - all_known
