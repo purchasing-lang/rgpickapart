@@ -398,18 +398,26 @@ function initOffset(){
 
 // ── Local storage ─────────────────────────────────────────────────────────────
 // ── Flags (Supabase-backed) ───────────────────────────────────────────────────
-let _flagCache = {}; // stock -> {flag, note}
+let _flagCache = {}; // stock -> {flag, note, archived}
 
 async function loadFlags(){
   try{
-    const rows = await query("vehicle_flags","?select=stock,flag,note");
+    const rows = await query("vehicle_flags","?select=stock,flag,note,archived_at");
     _flagCache = {};
-    for(const r of rows) _flagCache[r.stock] = {flag:r.flag, note:r.note||""};
+    for(const r of rows) _flagCache[r.stock] = {flag:r.flag, note:r.note||"", archived:!!r.archived_at};
     updateFlaggedCount();
-  }catch(e){}
+  }catch(e){
+    // fallback if archived_at column doesn't exist yet
+    try{
+      const rows = await query("vehicle_flags","?select=stock,flag,note");
+      _flagCache = {};
+      for(const r of rows) _flagCache[r.stock] = {flag:r.flag, note:r.note||"", archived:false};
+      updateFlaggedCount();
+    }catch(e2){}
+  }
 }
 
-function getFlags(){ const out={}; for(const [k,v] of Object.entries(_flagCache)) if(v&&v.flag) out[k]=v.flag; return out; }
+function getFlags(){ const out={}; for(const [k,v] of Object.entries(_flagCache)) if(v&&v.flag&&!v.archived) out[k]=v.flag; return out; }
 function getFlag(stock){ return (_flagCache[stock]||{}).flag||null; }
 function getNote(stock){ return (_flagCache[stock]||{}).note||""; }
 
@@ -844,7 +852,7 @@ async function loadParts(){
   const el = document.getElementById("partsContent");
   el.innerHTML = `<div class="loading"><div class="spinner"></div>Loading parts…</div>`;
   try{
-    const rows = await query("parts_list","?select=*&order=stock_num.asc.nullslast,id.asc");
+    const rows = await query("parts_list","?select=*&order=id.asc");
     const stockNums = [...new Set(rows.filter(r=>r.stock_num).map(r=>Number(r.stock_num)))];
     let vMap = {};
     if(stockNums.length){
@@ -934,7 +942,7 @@ function partsVehicleBlock(g){
 
 
 async function _loadPartsData(){
-  const rows = await query("parts_list","?select=*&order=stock_num.asc.nullslast,id.asc");
+  const rows = await query("parts_list","?select=*&order=id.asc");
   const stockNums = [...new Set(rows.filter(r=>r.stock_num).map(r=>Number(r.stock_num)))];
   let vMap = {};
   if(stockNums.length){
@@ -1044,10 +1052,9 @@ async function loadFlagged(){
   }
   try{
     const allStocks=[...new Set([...activeStocks,...incorrectStocks])];
-    const [vrows, allParts] = await Promise.all([
-      query("vehicles",`?stock=in.(${allStocks.join(",")})&select=*`),
-      query("parts_list",`?stock_num=in.(${allStocks.join(",")})&select=*&order=id.asc`)
-    ]);
+    const vrows = await query("vehicles",`?stock=in.(${allStocks.join(",")})&select=*`);
+    let allParts=[];
+    try{ allParts=await query("parts_list",`?stock_num=in.(${allStocks.join(",")})&select=*&order=id.asc`); }catch(e){}
     const vMap={};
     for(const r of vrows) vMap[r.stock]=r;
     const partsMap={};
@@ -1072,6 +1079,7 @@ async function loadFlagged(){
           </div>
           <div class="flag-card-actions">
             ${pillHtml(stock)}
+            <button class="flag-delete-btn" style="background:var(--green-bg);border-color:var(--green);color:var(--green)" onclick="showArchiveForm(${stock})">✓ Done</button>
             <button class="flag-delete-btn" onclick="deleteFlagCompletely(${stock})">🗑</button>
           </div>
         </div>
@@ -1080,6 +1088,15 @@ async function loadFlagged(){
             value="${note.replace(/"/g,'&quot;').replace(/\n/g,' ')}"
             oninput="debounceNote(${stock},this.value)">
           <div id="fparts-${stock}">${renderFcardParts(stock,vname,parts)}</div>
+          <div id="arch-form-${stock}" style="display:none;padding:9px 14px;background:var(--green-bg);border-top:1px solid rgba(40,167,69,.2)">
+            <div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:6px">Archive this vehicle — add a completion note</div>
+            <div style="display:flex;gap:6px">
+              <input id="arch-note-${stock}" class="filter-input" placeholder="e.g. Got door, alternator. Skipped hood." style="flex:1;font-size:12px;padding:5px 9px"
+                onkeydown="if(event.key==='Enter')confirmArchive(${stock})">
+              <button class="btn btn-sm" style="background:var(--green);color:#fff" onclick="confirmArchive(${stock})">Archive</button>
+              <button class="btn btn-sm" onclick="document.getElementById('arch-form-${stock}').style.display='none'">Cancel</button>
+            </div>
+          </div>
         `:""}
       </div>`;
     }
@@ -1095,6 +1112,13 @@ async function loadFlagged(){
     if(interested.length){ html+=`<div class="section-label orange">⭐ Interested — ${interested.length}</div>`+interested.map(flagCard).join(""); }
     if(worked.length){ html+=`<div class="section-label" style="color:var(--green)">✓ Worked On — ${worked.length}</div>`+worked.map(flagCard).join(""); }
     if(incorrectStocks.length){ html+=`<div class="section-label red">✗ Incorrect — ${incorrectStocks.length}</div>`+incorrectStocks.map(flagCard).join(""); }
+    html+=`<div style="margin-top:16px;text-align:center">
+      <button class="btn btn-sm" onclick="toggleArchive()" style="color:var(--text3)">📦 Archive</button>
+    </div>
+    <div id="archiveSection" style="display:none;margin-top:10px">
+      <div class="section-label">📦 Archived</div>
+      <div id="archiveContent"><div class="loading" style="padding:16px"><div class="spinner"></div></div></div>
+    </div>`;
     el.innerHTML=html||`<div class="empty">None</div>`;
     el.querySelectorAll('.flag-note-area[data-stock]').forEach(inp=>{ if(draft[inp.dataset.stock]!==undefined) inp.value=draft[inp.dataset.stock]; });
   }catch(e){ el.innerHTML=`<div class="empty">Error: ${e.message}</div>`; }
@@ -1192,6 +1216,65 @@ async function deleteFlagCompletely(stock){
   if(!confirm("Remove this vehicle from flagged list?")) return;
   await setFlag(stock, null);
   loadFlagged();
+}
+
+function showArchiveForm(stock){
+  const f=document.getElementById(`arch-form-${stock}`); if(!f) return;
+  f.style.display=f.style.display==="none"?"block":"none";
+  if(f.style.display==="block") document.getElementById(`arch-note-${stock}`)?.focus();
+}
+
+async function confirmArchive(stock){
+  const noteEl=document.getElementById(`arch-note-${stock}`);
+  const archNote=(noteEl?noteEl.value.trim():"");
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?stock=eq.${stock}`,{
+    method:"PATCH",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+    body:JSON.stringify({archived_at:new Date().toISOString(),archive_note:archNote,checklist_status:"complete"})
+  });
+  if(_flagCache[stock]) _flagCache[stock].archived=true;
+  document.getElementById(`fcard-${stock}`)?.remove();
+  updateFlaggedCount();
+}
+
+async function unarchiveVehicle(stock){
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?stock=eq.${stock}`,{
+    method:"PATCH",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+    body:JSON.stringify({archived_at:null,archive_note:null})
+  });
+  if(_flagCache[stock]) _flagCache[stock].archived=false;
+  loadFlagged();
+}
+
+function toggleArchive(){
+  const sec=document.getElementById("archiveSection"); if(!sec) return;
+  if(sec.style.display==="none"){ sec.style.display="block"; loadArchive(); }
+  else sec.style.display="none";
+}
+
+async function loadArchive(){
+  const el=document.getElementById("archiveContent"); if(!el) return;
+  try{
+    const rows=await query("vehicle_flags","?archived_at=not.is.null&select=stock,flag,archive_note,archived_at&order=archived_at.desc");
+    if(!rows.length){ el.innerHTML=`<div style="padding:10px 14px;font-size:12px;color:var(--text3);font-style:italic">No archived vehicles yet.</div>`; return; }
+    const stocks=rows.map(r=>r.stock);
+    const vrows=await query("vehicles",`?stock=in.(${stocks.join(",")})&select=stock,year,make,model,row`);
+    const vMap={};
+    for(const v of vrows) vMap[v.stock]=v;
+    el.innerHTML=rows.map(r=>{
+      const v=vMap[r.stock]||{};
+      const d=r.archived_at?new Date(r.archived_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"";
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:6px 14px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${v.year||""} ${v.make||""} ${v.model||""} <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">STK${r.stock}${v.row?" · Row "+v.row:""}</span></div>
+          ${r.archive_note?`<div style="font-size:11px;color:var(--text2);margin-top:3px">${r.archive_note}</div>`:""}
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Archived ${d}</div>
+        </div>
+        <button class="flag-delete-btn" onclick="unarchiveVehicle(${r.stock})">↩ Restore</button>
+      </div>`;
+    }).join("");
+  }catch(e){ el.innerHTML=`<div style="padding:10px;font-size:12px;color:var(--red)">${e.message}</div>`; }
 }
 
 async function preloadAll(){

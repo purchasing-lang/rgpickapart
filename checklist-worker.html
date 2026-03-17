@@ -146,16 +146,15 @@ let items = []; // [{stock, flag, note, checklist_status, vehicle:{}, parts:[]}]
 async function load(){
   const el = document.getElementById("content");
   try{
-    const flags = await get("/rest/v1/vehicle_flags?flag=neq.incorrect&select=stock,flag,note,checklist_status&order=stock.asc");
+    const flags = await get("/rest/v1/vehicle_flags?flag=neq.incorrect&archived_at=is.null&select=stock,flag,note,checklist_status&order=stock.asc");
     if(!flags.length){
       el.innerHTML=`<div class="empty">No flagged vehicles yet.<br>Flag vehicles in the dashboard first.</div>`;
       updateCounts(); return;
     }
     const stocks = flags.map(f=>f.stock);
-    const [vrows, parts] = await Promise.all([
-      get(`/rest/v1/vehicles?stock=in.(${stocks.join(",")})&select=stock,year,make,model,row`),
-      get(`/rest/v1/parts_list?stock_num=in.(${stocks.join(",")})&select=id,stock_num,part,status&order=id.asc`)
-    ]);
+    const vrows = await get(`/rest/v1/vehicles?stock=in.(${stocks.join(",")})&select=stock,year,make,model,row`);
+    let parts=[];
+    try{ parts=await get(`/rest/v1/parts_list?stock_num=in.(${stocks.join(",")})&select=id,stock_num,part,status&order=id.asc`); }catch(e){}
     const vm={};
     for(const v of vrows) vm[v.stock]=v;
     items = flags
