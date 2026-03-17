@@ -82,7 +82,7 @@ header{
   border:1.5px solid var(--border);
   border-radius:6px;background:var(--surface);
   display:flex;align-items:center;justify-content:center;gap:3px;
-  cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;
+  cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;font-family:var(--font);
   transition:background .1s,border-color .1s;
   -webkit-user-select:none;user-select:none;
 }
@@ -201,7 +201,7 @@ function vBlock(item){
 function partRow(p){
   const st=p.status||"pending";
   const icon=ST_ICON[st]||"○";
-  const btns=ST.map(s=>`<div class="pb${st===s.k?" "+s.cls:""}" onclick="tapPart(${p.id},'${s.k}')">${s.icon} ${s.label}</div>`).join("");
+  const btns=ST.map(s=>`<button type="button" class="pb${st===s.k?" "+s.cls:""}" onclick="tapPart(${p.id},'${s.k}')">${s.icon} ${s.label}</button>`).join("");
   const nameCls=st==="complete"?"done":st==="missing"||st==="no_remove"?"faded":"";
   return `<div class="pr" id="pr-${p.id}">
     <span class="ps">${icon}</span>
@@ -242,7 +242,7 @@ async function tapPart(id, statusKey){
     if(icon) icon.textContent=ST_ICON[ns]||"○";
     if(name){ name.className="pn"; if(ns==="complete") name.classList.add("done"); else if(ns==="missing"||ns==="no_remove") name.classList.add("faded"); }
     const btnsEl=row.querySelector(".pbtns");
-    if(btnsEl) btnsEl.innerHTML=ST.map(s=>`<div class="pb${ns===s.k?" "+s.cls:""}" onclick="tapPart(${id},'${s.k}')">${s.icon} ${s.label}</div>`).join("");
+    if(btnsEl) btnsEl.innerHTML=ST.map(s=>`<button type="button" class="pb${ns===s.k?" "+s.cls:""}" onclick="tapPart(${id},'${s.k}')">${s.icon} ${s.label}</button>`).join("");
   }
   await patchDB("parts_list",`id=eq.${id}`,{status:ns});
 }

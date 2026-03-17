@@ -953,15 +953,17 @@ async function _loadPartsData(){
 }
 
 function exportWhatsApp(){
-  _buildWhatsAppText().then(txt=>{
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt)
-        .then(()=>alert("Copied to clipboard! Paste into WhatsApp."))
-        .catch(()=>prompt("Copy this text and paste into WhatsApp:", txt));
-    } else {
-      prompt("Copy this text and paste into WhatsApp:", txt);
-    }
-  });
+  _buildWhatsAppText()
+    .then(txt=>{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt)
+          .then(()=>alert("Copied! Paste into WhatsApp."))
+          .catch(()=>prompt("Copy and send to worker:", txt));
+      } else {
+        prompt("Copy and send to worker:", txt);
+      }
+    })
+    .catch(e=>alert("Export error: "+e.message));
 }
 
 async function _buildWhatsAppText(){
@@ -990,24 +992,36 @@ async function _buildWhatsAppText(){
 }
 
 function exportCSV(){
-  _buildCSV().then(csv=>{
-    const blob = new Blob([csv],{type:"text/csv"});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href = url; a.download = `parts-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-  });
+  _buildCSV()
+    .then(csv=>{
+      const blob = new Blob([csv],{type:"text/csv"});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = `parts-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(e=>alert("Export error: "+e.message));
 }
 
 async function _buildCSV(){
   const {rows, vMap} = await _loadPartsData();
+  // Also load archived dates for completed parts
+  let archMap = {};
+  try{
+    const arched = await query("vehicle_flags","?archived_at=not.is.null&select=stock,archived_at,archive_note");
+    for(const a of arched) archMap[a.stock] = a;
+  }catch(e){}
+  const today = new Date().toISOString().slice(0,10);
   const esc = s => `"${(s||"").replace(/"/g,'""')}"`;
-  let csv = "Date Added,Vehicle,Stock,Row,Part,Status\n";
+  let csv = "Date Added,Day Completed,Vehicle,Stock,Row,Part,Status,Archive Note\n";
   for(const r of rows){
-    const v    = r.stock_num ? vMap[Number(r.stock_num)] : null;
-    const date = r.created_at ? r.created_at.slice(0,10) : "";
-    const name = v ? `${v.year||""} ${v.make||""} ${v.model||""}`.trim() : r.vehicle;
-    csv += [esc(date), esc(name), esc(r.stock_num||""), esc(v?.row?.toString()||""), esc(r.part), esc(r.status||"pending")].join(",") + "\n";
+    const v      = r.stock_num ? vMap[Number(r.stock_num)] : null;
+    const arch   = r.stock_num ? archMap[Number(r.stock_num)] : null;
+    const date   = r.created_at ? r.created_at.slice(0,10) : today;
+    const doneDate = arch?.archived_at ? arch.archived_at.slice(0,10) : (r.status&&r.status!=="pending"?today:"");
+    const name   = v ? `${v.year||""} ${v.make||""} ${v.model||""}`.trim() : r.vehicle;
+    csv += [esc(date), esc(doneDate), esc(name), esc(r.stock_num||""), esc(v?.row?.toString()||""), esc(r.part), esc(r.status||"pending"), esc(arch?.archive_note||"")].join(",") + "\n";
   }
   return csv;
 }
@@ -1262,18 +1276,29 @@ async function loadArchive(){
     const vrows=await query("vehicles",`?stock=in.(${stocks.join(",")})&select=stock,year,make,model,row`);
     const vMap={};
     for(const v of vrows) vMap[v.stock]=v;
-    el.innerHTML=rows.map(r=>{
-      const v=vMap[r.stock]||{};
-      const d=r.archived_at?new Date(r.archived_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"";
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:6px 14px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600">${v.year||""} ${v.make||""} ${v.model||""} <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">STK${r.stock}${v.row?" · Row "+v.row:""}</span></div>
-          ${r.archive_note?`<div style="font-size:11px;color:var(--text2);margin-top:3px">${r.archive_note}</div>`:""}
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">Archived ${d}</div>
-        </div>
-        <button class="flag-delete-btn" onclick="unarchiveVehicle(${r.stock})">↩ Restore</button>
-      </div>`;
-    }).join("");
+    // Group by date
+    const byDate = new Map();
+    for(const r of rows){
+      const d = r.archived_at ? r.archived_at.slice(0,10) : "unknown";
+      if(!byDate.has(d)) byDate.set(d,[]);
+      byDate.get(d).push(r);
+    }
+    let archHtml = "";
+    for(const [date, group] of byDate){
+      const label = date!=="unknown" ? new Date(date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}) : "Unknown date";
+      archHtml += `<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;padding:10px 14px 4px">${label}</div>`;
+      for(const r of group){
+        const v=vMap[r.stock]||{};
+        archHtml += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:4px 14px;padding:9px 12px;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600">${v.year||""} ${v.make||""} ${v.model||""} <span style="font-family:var(--mono);font-size:11px;color:var(--blue)">STK${r.stock}${v.row?" · Row "+v.row:""}</span></div>
+            ${r.archive_note?`<div style="font-size:11px;color:var(--text2);margin-top:3px">${r.archive_note}</div>`:""}
+          </div>
+          <button class="flag-delete-btn" onclick="unarchiveVehicle(${r.stock})">↩ Restore</button>
+        </div>`;
+      }
+    }
+    el.innerHTML = archHtml;
   }catch(e){ el.innerHTML=`<div style="padding:10px;font-size:12px;color:var(--red)">${e.message}</div>`; }
 }
 
