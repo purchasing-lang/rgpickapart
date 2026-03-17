@@ -55,6 +55,10 @@ header{
 .btn{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:20px;font-family:var(--font);font-size:13px;font-weight:500;padding:7px 15px;cursor:pointer;transition:opacity .15s}
 .btn-blue{background:var(--blue);color:#fff}
 .btn-blue:hover{opacity:.85}
+.offset-ctrl{display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:2px 6px}
+.offset-ctrl span{font-family:var(--mono);font-size:12px;font-weight:600;min-width:32px;text-align:center;color:var(--text)}
+.offset-btn{background:none;border:none;cursor:pointer;color:var(--text2);font-size:15px;padding:0 3px;line-height:1;font-weight:700}
+.offset-btn:hover{color:var(--blue)}
 .btn-sm{padding:5px 12px;font-size:12px}
 
 /* ── Page ── */
@@ -240,6 +244,11 @@ header{
   <div class="logo">RG Pick-A-Part <em>Lot Tracker</em></div>
   <div class="header-right">
     <span class="last-run" id="lastRun"></span>
+    <div class="offset-ctrl" title="Lot-time offset: adjusts displayed days on lot">
+      <button class="offset-btn" onclick="adjustOffset(-1)">−</button>
+      <span id="offsetVal">−7d</span>
+      <button class="offset-btn" onclick="adjustOffset(1)">+</button>
+    </div>
     <button class="btn btn-blue" onclick="loadAll()">↻ Refresh</button>
   </div>
 </header>
@@ -363,7 +372,20 @@ header{
 <script>
 const SUPABASE_URL = "https://maxvxqovqlugnifrabvy.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHZ4cW92cWx1Z25pZnJhYnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzU5NDgsImV4cCI6MjA4OTAxMTk0OH0.XILjOkLmwd9qF_DlKZLmsUmRX-UPMMW9DwCTzF6k9_I";
-const DAYS_OFFSET = -7; // add days to estimated lot time (positive = older than estimated)
+// ── Days offset (persisted in localStorage) ───────────────────────────────────
+function getDaysOffset(){ const v=localStorage.getItem("daysOffset"); return v!==null?parseInt(v):-7; }
+function adjustOffset(delta){
+  const next = getDaysOffset() + delta;
+  localStorage.setItem("daysOffset", next);
+  const el = document.getElementById("offsetVal");
+  if(el) el.textContent = (next>=0?"+":"")+next+"d";
+  refreshCurrentTab();
+}
+function initOffset(){
+  const v = getDaysOffset();
+  const el = document.getElementById("offsetVal");
+  if(el) el.textContent = (v>=0?"+":"")+v+"d";
+}
 
 // ── Local storage ─────────────────────────────────────────────────────────────
 // ── Flags (Supabase-backed) ───────────────────────────────────────────────────
@@ -475,16 +497,21 @@ function sortVehicles(arr, col=sortCol, dir=sortDir){
     if(col === "_days"){
       const aRef = a.confirmed_add_date || a.estimated_add_date;
       const bRef = b.confirmed_add_date || b.estimated_add_date;
-      av = aRef ? Math.round((today - new Date(aRef+"T12:00:00")) / 86400000) + DAYS_OFFSET : -1;
-      bv = bRef ? Math.round((today - new Date(bRef+"T12:00:00")) / 86400000) + DAYS_OFFSET : -1;
+      av = aRef ? Math.round((today - new Date(aRef+"T12:00:00")) / 86400000) + getDaysOffset() : null;
+      bv = bRef ? Math.round((today - new Date(bRef+"T12:00:00")) / 86400000) + getDaysOffset() : null;
+      // Vehicles with no date estimate always sort to the bottom
+      if(av===null && bv===null){ /* fall through to row tiebreak */ }
+      else if(av===null) return 1;
+      else if(bv===null) return -1;
+      else { if(av<bv) return dir==="asc"?-1:1; if(av>bv) return dir==="asc"?1:-1; }
     } else {
       av = a[col]; bv = b[col];
+      if(col==="row"){ av=av??99999; bv=bv??99999; }
+      if(col==="stock"||col==="year"||col==="row"){ av=Number(av)||0; bv=Number(bv)||0; }
+      else { av=(av||"").toString().toLowerCase(); bv=(bv||"").toString().toLowerCase(); }
+      if(av<bv) return dir==="asc"?-1:1;
+      if(av>bv) return dir==="asc"?1:-1;
     }
-    if(col==="row"){ av=av??99999; bv=bv??99999; }
-    if(col==="stock"||col==="year"||col==="row"||col==="_days"){ av=Number(av)||0; bv=Number(bv)||0; }
-    else { av=(av||"").toString().toLowerCase(); bv=(bv||"").toString().toLowerCase(); }
-    if(av<bv) return dir==="asc"?-1:1;
-    if(av>bv) return dir==="asc"?1:-1;
     const ra=a.row??99999, rb=b.row??99999;
     return ra-rb;
   });
@@ -609,7 +636,7 @@ function vehicleList(rows, mode="added", showIncorrect=false){
     } else if(mode!=="removed"){
       const refDate = v.confirmed_add_date || v.estimated_add_date;
       if(refDate){
-        const days = Math.round((today - new Date(refDate+"T12:00:00")) / 86400000) + DAYS_OFFSET;
+        const days = Math.round((today - new Date(refDate+"T12:00:00")) / 86400000) + getDaysOffset();
         const daysColor = days > 90 ? "var(--text3)" : days > 30 ? "var(--yellow)" : "var(--green)";
         extraVal = `<span class="v-days" style="color:${daysColor}">${days}d</span>`;
       } else {
@@ -665,7 +692,7 @@ function matchesFilters(v, f){
   if(f.stock  && !String(v.stock).includes(f.stock)) return false;
   if(f.daysMin || f.daysMax){
     const ref = v.confirmed_add_date || v.estimated_add_date;
-    const days = ref ? Math.round((new Date() - new Date(ref+"T12:00:00"))/86400000) + DAYS_OFFSET : null;
+    const days = ref ? Math.round((new Date() - new Date(ref+"T12:00:00"))/86400000) + getDaysOffset() : null;
     if(days === null) return false;
     if(f.daysMin && days < Number(f.daysMin)) return false;
     if(f.daysMax && days > Number(f.daysMax)) return false;
@@ -899,7 +926,7 @@ async function loadFlagged(){
       const flagVal = flags[stock] || flags[String(stock)];
       const note = getNote(stock);
       const ref = v.confirmed_add_date || v.estimated_add_date;
-      const days = ref ? Math.round((new Date()-new Date(ref+"T12:00:00"))/86400000) + DAYS_OFFSET : null;
+      const days = ref ? Math.round((new Date()-new Date(ref+"T12:00:00"))/86400000) + getDaysOffset() : null;
       const isIncorrect = flagVal === "incorrect";
       return `<div class="flag-card ${isIncorrect?'flag-incorrect':''}" id="fcard-${stock}">
         <div class="flag-card-header">
@@ -1071,6 +1098,7 @@ async function loadAll(){
   updateFlaggedCount();
 }
 
+initOffset();
 loadAll();
 </script>
 </body>

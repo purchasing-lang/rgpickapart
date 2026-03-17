@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>RG Worker Checklist</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f2f7;--surface:#fff;--border:rgba(0,0,0,0.09);
+  --text:#1c1c1e;--text2:#6c6c70;--text3:#aeaeb2;
+  --green:#28a745;--green-bg:rgba(40,167,69,0.13);
+  --red:#dc3545;--red-bg:rgba(220,53,69,0.13);
+  --orange:#f4650a;--orange-bg:rgba(244,101,10,0.13);
+  --purple:#7a4cf5;--purple-bg:rgba(122,76,245,0.13);
+  --blue:#0071e3;--blue-bg:rgba(0,113,227,0.10);
+  --font:'DM Sans',-apple-system,sans-serif;
+  --mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px}
+
+header{
+  background:rgba(242,242,247,0.95);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+  padding:10px 14px 8px;
+}
+.header-top{display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:16px;font-weight:700;letter-spacing:-0.3px}
+.logo em{font-style:normal;color:var(--text2);font-weight:400;font-size:12px;margin-left:5px}
+.header-counts{display:flex;gap:6px;align-items:center}
+.cpill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+.cp-pend{background:var(--orange-bg);color:var(--orange)}
+.cp-done{background:var(--green-bg);color:var(--green)}
+.date-line{font-size:11px;color:var(--text3);margin-top:3px}
+
+.content{padding:10px 10px 96px}
+
+/* ── Vehicle block ── */
+.v-block{
+  background:var(--surface);
+  border-radius:12px;
+  box-shadow:0 1px 8px rgba(0,0,0,0.07);
+  margin-bottom:10px;
+  overflow:hidden;
+}
+
+.v-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;
+  border-bottom:1px solid rgba(0,0,0,0.06);
+  gap:8px;
+}
+.v-header.is-done{background:var(--green-bg)}
+.v-meta{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.v-row-stk{font-size:11px;color:var(--text2);font-family:var(--mono);font-weight:500}
+.v-name{font-size:15px;font-weight:700;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-flag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;margin-top:2px;display:inline-block}
+.flag-interested{background:var(--orange-bg);color:var(--orange)}
+.flag-worked{background:var(--green-bg);color:var(--green)}
+
+.done-btn{
+  flex-shrink:0;
+  border:1.5px solid var(--border);
+  background:var(--bg);
+  border-radius:8px;
+  font-family:var(--font);
+  font-size:11px;font-weight:700;
+  padding:5px 10px;
+  cursor:pointer;
+  color:var(--text2);
+  transition:all .15s;
+  white-space:nowrap;
+}
+.done-btn.active{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+
+.v-note{
+  padding:6px 12px;
+  font-size:12px;color:var(--text2);
+  background:var(--blue-bg);
+  border-bottom:1px solid rgba(0,0,0,0.04);
+  line-height:1.5;white-space:pre-wrap;word-break:break-word;
+}
+
+/* ── Parts list ── */
+.parts-list{padding:0}
+.part-row{
+  display:flex;align-items:center;
+  padding:9px 12px;
+  border-bottom:1px solid rgba(0,0,0,0.05);
+  gap:8px;
+}
+.part-row:last-child{border-bottom:none}
+.part-row.st-removed{background:rgba(40,167,69,0.04)}
+.part-row.st-broken{background:rgba(244,101,10,0.04)}
+.part-row.st-not_there{background:rgba(220,53,69,0.04)}
+.part-row.st-not_removable{background:rgba(122,76,245,0.04)}
+
+.part-status-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.part-name{flex:1;font-size:13px;line-height:1.35}
+.part-name.st-removed{text-decoration:line-through;color:var(--text3)}
+.part-name.st-not_there{color:var(--text3)}
+
+.part-btns{display:flex;gap:3px;flex-shrink:0}
+.pb{
+  border:1.5px solid var(--border);
+  background:var(--surface);
+  border-radius:6px;
+  font-size:14px;
+  width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:all .12s;
+  -webkit-user-select:none;user-select:none;
+}
+.pb:active{transform:scale(.92)}
+.pb.pb-removed.active{background:var(--green-bg);border-color:var(--green)}
+.pb.pb-broken.active{background:var(--orange-bg);border-color:var(--orange)}
+.pb.pb-not_there.active{background:var(--red-bg);border-color:var(--red)}
+.pb.pb-not_removable.active{background:var(--purple-bg);border-color:var(--purple)}
+
+.no-parts{
+  padding:10px 12px;
+  font-size:12px;color:var(--text3);font-style:italic;
+}
+
+/* ── Empty / loading ── */
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:72px 20px;color:var(--text3)}
+.spinner{width:18px;height:18px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:64px 20px;color:var(--text3);font-size:14px;line-height:1.6}
+.empty-icon{font-size:34px;margin-bottom:10px}
+.section-lbl{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:10px 12px 4px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="logo">RG Worker <em id="dateLabel"></em></div>
+    <div class="header-counts">
+      <span class="cpill cp-pend" id="cntPend">—</span>
+      <span class="cpill cp-done" id="cntDone">—</span>
+    </div>
+  </div>
+</header>
+
+<div class="content" id="content">
+  <div class="loading"><div class="spinner"></div>Loading…</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://maxvxqovqlugnifrabvy.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHZ4cW92cWx1Z25pZnJhYnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzU5NDgsImV4cCI6MjA4OTAxMTk0OH0.XILjOkLmwd9qF_DlKZLmsUmRX-UPMMW9DwCTzF6k9_I";
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function api(path, opts={}){
+  const r = await fetch(SUPABASE_URL + path, {
+    headers:{
+      "apikey":SUPABASE_KEY,
+      "Authorization":`Bearer ${SUPABASE_KEY}`,
+      ...(opts.headers||{})
+    },
+    ...opts
+  });
+  if(!r.ok) throw new Error(await r.text());
+  if(opts.method && opts.method!=="GET") return null;
+  return r.json();
+}
+
+async function patch(table, filter, body){
+  await api(`/rest/v1/${table}?${filter}`,{
+    method:"PATCH",
+    headers:{"Content-Type":"application/json","Prefer":"return=minimal"},
+    body:JSON.stringify(body)
+  });
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let vehicles = [];   // [{flag, stock, vehicle:{...}, parts:[...], checklist_status}]
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function load(){
+  const today = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  document.getElementById("dateLabel").textContent = today;
+
+  const el = document.getElementById("content");
+  try{
+    // 1. Flagged vehicles (not incorrect)
+    const flags = await api("/rest/v1/vehicle_flags?flag=neq.incorrect&select=stock,flag,note,checklist_status&order=stock.asc");
+    if(!flags.length){
+      el.innerHTML=`<div class="empty"><div class="empty-icon">📋</div>No flagged vehicles.<br>Flag vehicles in the dashboard first.</div>`;
+      updateCounts();
+      return;
+    }
+
+    const stocks = flags.map(f=>f.stock);
+
+    // 2. Vehicle details + parts (parallel)
+    const [vrows, parts] = await Promise.all([
+      api(`/rest/v1/vehicles?stock=in.(${stocks.join(",")})&select=stock,year,make,model,row`),
+      api(`/rest/v1/parts_list?stock_num=in.(${stocks.join(",")})&select=id,stock_num,part,status&order=id.asc`)
+    ]);
+
+    const vmap={};
+    for(const v of vrows) vmap[v.stock]=v;
+
+    vehicles = flags
+      .map(f=>({
+        ...f,
+        vehicle: vmap[f.stock]||null,
+        parts: parts.filter(p=>Number(p.stock_num)===f.stock)
+      }))
+      .filter(f=>f.vehicle)
+      .sort((a,b)=>{
+        const ra=a.vehicle.row??99999, rb=b.vehicle.row??99999;
+        return ra!==rb ? ra-rb : a.stock-b.stock;
+      });
+
+    updateCounts();
+    render();
+  }catch(e){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div>Error: ${e.message}</div>`;
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+const STATUS_CFG = [
+  {key:"removed",      cls:"pb-removed",      icon:"✓", label:"Got it"},
+  {key:"broken",       cls:"pb-broken",       icon:"🔧",label:"Broken"},
+  {key:"not_there",    cls:"pb-not_there",    icon:"✗", label:"Not there"},
+  {key:"not_removable",cls:"pb-not_removable",icon:"🔒",label:"Can't remove"},
+];
+
+const STATUS_ICON = {
+  removed:"✓", broken:"🔧", not_there:"✗", not_removable:"🔒", pending:"○"
+};
+
+function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function render(){
+  const el = document.getElementById("content");
+  if(!vehicles.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📋</div>No flagged vehicles.</div>`;
+    return;
+  }
+
+  const interested = vehicles.filter(v=>v.flag==="interested");
+  const worked     = vehicles.filter(v=>v.flag==="worked");
+
+  let html = "";
+  if(interested.length){
+    html += `<div class="section-lbl">⭐ Interested</div>`;
+    html += interested.map(vehicleBlock).join("");
+  }
+  if(worked.length){
+    html += `<div class="section-lbl">✓ Worked On</div>`;
+    html += worked.map(vehicleBlock).join("");
+  }
+  el.innerHTML = html;
+}
+
+function vehicleBlock(item){
+  const v = item.vehicle;
+  const done = item.checklist_status === "complete";
+  const rowLabel = v.row ? `Row ${v.row}` : "Row —";
+  const flagCls  = item.flag==="worked" ? "flag-worked" : "flag-interested";
+  const flagLbl  = item.flag==="worked" ? "Worked On" : "Interested";
+
+  let partsHtml = "";
+  if(item.parts.length){
+    partsHtml = item.parts.map(p=>{
+      const st = p.status||"pending";
+      const icon = STATUS_ICON[st]||"○";
+      const btns = STATUS_CFG.map(cfg=>`
+        <button class="pb ${cfg.cls}${st===cfg.key?" active":""}"
+          onclick="tapPart(${p.id},'${cfg.key}')"
+          aria-label="${cfg.label}">${cfg.icon}</button>`
+      ).join("");
+      return `<div class="part-row st-${st}" id="pr-${p.id}">
+        <span class="part-status-icon">${icon}</span>
+        <span class="part-name ${st!=="pending"?"st-"+st:""}">${escHtml(p.part)}</span>
+        <div class="part-btns">${btns}</div>
+      </div>`;
+    }).join("");
+  } else {
+    partsHtml = `<div class="no-parts">No parts listed — add in dashboard Parts tab</div>`;
+  }
+
+  const noteHtml = item.note ? `<div class="v-note">${escHtml(item.note)}</div>` : "";
+
+  return `<div class="v-block" id="vb-${item.stock}">
+    <div class="v-header${done?" is-done":""}">
+      <div class="v-meta">
+        <span class="v-row-stk">${rowLabel} · STK${item.stock}</span>
+        <span class="v-name">${v.year||"?"} ${v.make||""} ${v.model||""}</span>
+        <span class="v-flag ${flagCls}">${flagLbl}</span>
+      </div>
+      <button class="done-btn${done?" active":""}" onclick="tapDone(${item.stock})">
+        ${done?"✓ Done":"Done"}
+      </button>
+    </div>
+    ${noteHtml}
+    <div class="parts-list">${partsHtml}</div>
+  </div>`;
+}
+
+// ── Update counts ─────────────────────────────────────────────────────────────
+function updateCounts(){
+  const done    = vehicles.filter(v=>v.checklist_status==="complete").length;
+  const pending = vehicles.length - done;
+  document.getElementById("cntPend").textContent = pending+" pending";
+  document.getElementById("cntDone").textContent = done+" done";
+}
+
+// ── Interactions ──────────────────────────────────────────────────────────────
+async function tapDone(stock){
+  const item = vehicles.find(v=>v.stock===stock);
+  if(!item) return;
+  const newStatus = item.checklist_status==="complete" ? null : "complete";
+  item.checklist_status = newStatus;
+
+  // Update header in place
+  const block = document.getElementById(`vb-${stock}`);
+  if(block){
+    const hdr = block.querySelector(".v-header");
+    const btn = block.querySelector(".done-btn");
+    if(newStatus){ hdr.classList.add("is-done"); btn.classList.add("active"); btn.textContent="✓ Done"; }
+    else          { hdr.classList.remove("is-done"); btn.classList.remove("active"); btn.textContent="Done"; }
+  }
+  updateCounts();
+
+  await patch("vehicle_flags", `stock=eq.${stock}`, {checklist_status:newStatus});
+}
+
+async function tapPart(id, statusKey){
+  // Find the part across all vehicles
+  let part = null;
+  for(const item of vehicles){
+    part = item.parts.find(p=>p.id===id);
+    if(part) break;
+  }
+  if(!part) return;
+
+  const newStatus = part.status===statusKey ? "pending" : statusKey;
+  part.status = newStatus;
+
+  // Update part row in place
+  const row = document.getElementById(`pr-${id}`);
+  if(row){
+    row.className = `part-row st-${newStatus}`;
+    const icon = row.querySelector(".part-status-icon");
+    const name = row.querySelector(".part-name");
+    if(icon) icon.textContent = STATUS_ICON[newStatus]||"○";
+    if(name){ name.className="part-name"; if(newStatus!=="pending") name.classList.add("st-"+newStatus); }
+    row.querySelectorAll(".pb").forEach(btn=>{
+      const k = STATUS_CFG.find(c=>btn.classList.contains(c.cls))?.key;
+      btn.classList.toggle("active", k===newStatus);
+    });
+  }
+
+  await patch("parts_list", `id=eq.${id}`, {status:newStatus});
+}
+
+load();
+</script>
+</body>
+</html>
