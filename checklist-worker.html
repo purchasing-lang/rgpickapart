@@ -75,23 +75,21 @@ header{
 .pn.done{text-decoration:line-through;color:var(--text3)}
 .pn.faded{color:var(--text3)}
 
-/* 5 small status buttons */
-.pbtns{display:flex;gap:2px;flex-shrink:0}
+/* 3 status buttons */
+.pbtns{display:flex;gap:3px;flex-shrink:0}
 .pb{
-  width:28px;height:28px;
+  height:34px;padding:0 10px;
   border:1.5px solid var(--border);
   border-radius:6px;background:var(--surface);
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;font-size:13px;
+  display:flex;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;
   transition:background .1s,border-color .1s;
   -webkit-user-select:none;user-select:none;
 }
 .pb:active{opacity:.7}
-.pb.a-complete   {background:var(--green-bg) ;border-color:var(--green)}
-.pb.a-broken     {background:var(--orange-bg);border-color:var(--orange)}
-.pb.a-missing    {background:var(--red-bg)   ;border-color:var(--red)}
-.pb.a-location   {background:var(--blue-bg)  ;border-color:var(--blue)}
-.pb.a-no_remove  {background:var(--purple-bg);border-color:var(--purple)}
+.pb.a-complete  {background:var(--green-bg) ;border-color:var(--green) ;color:var(--green)}
+.pb.a-missing   {background:var(--red-bg)   ;border-color:var(--red)   ;color:var(--red)}
+.pb.a-no_remove {background:var(--purple-bg);border-color:var(--purple);color:var(--purple)}
 
 .no-parts{padding:6px 10px;font-size:11px;color:var(--text3);font-style:italic}
 .sec-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:8px 10px 3px}
@@ -134,15 +132,14 @@ async function patchDB(table,filter,body){
   });
 }
 
-// status config — key stored in DB, icon shown, active class
+// status config — 3 buttons for the worker
 const ST = [
-  {k:"complete",  icon:"✓", cls:"a-complete", title:"Complete"},
-  {k:"broken",    icon:"⚠", cls:"a-broken",   title:"Broken"},
-  {k:"missing",   icon:"✗", cls:"a-missing",  title:"Missing"},
-  {k:"location",  icon:"?", cls:"a-location", title:"Location needed"},
-  {k:"no_remove", icon:"⊘", cls:"a-no_remove",title:"Can't remove"},
+  {k:"complete",  icon:"✓", cls:"a-complete", label:"Got it"},
+  {k:"missing",   icon:"✗", cls:"a-missing",  label:"Not there"},
+  {k:"no_remove", icon:"⊘", cls:"a-no_remove",label:"Can't"},
 ];
-const ST_ICON = Object.fromEntries(ST.map(s=>[s.k,s.icon]));
+// icons for all possible status values (including legacy)
+const ST_ICON = {complete:"✓",broken:"⚠",missing:"✗",location:"?",no_remove:"⊘"};
 
 let items = []; // [{stock, flag, note, checklist_status, vehicle:{}, parts:[]}]
 
@@ -205,7 +202,7 @@ function vBlock(item){
 function partRow(p){
   const st=p.status||"pending";
   const icon=ST_ICON[st]||"○";
-  const btns=ST.map(s=>`<div class="pb${st===s.k?" "+s.cls:""}" onclick="tapPart(${p.id},'${s.k}')" title="${s.title}">${s.icon}</div>`).join("");
+  const btns=ST.map(s=>`<div class="pb${st===s.k?" "+s.cls:""}" onclick="tapPart(${p.id},'${s.k}')">${s.icon} ${s.label}</div>`).join("");
   const nameCls=st==="complete"?"done":st==="missing"||st==="no_remove"?"faded":"";
   return `<div class="pr" id="pr-${p.id}">
     <span class="ps">${icon}</span>
@@ -245,13 +242,8 @@ async function tapPart(id, statusKey){
     const icon=row.querySelector(".ps"), name=row.querySelector(".pn");
     if(icon) icon.textContent=ST_ICON[ns]||"○";
     if(name){ name.className="pn"; if(ns==="complete") name.classList.add("done"); else if(ns==="missing"||ns==="no_remove") name.classList.add("faded"); }
-    row.querySelectorAll(".pb").forEach(btn=>{
-      const k=ST.find(s=>btn.classList.contains("a-"+s.k.replace("_","-"))||btn.getAttribute("onclick")?.includes(`'${s.k}'`))?.k;
-      // re-read from onclick to get the key reliably
-    });
-    // re-render just the buttons in place
     const btnsEl=row.querySelector(".pbtns");
-    if(btnsEl) btnsEl.innerHTML=ST.map(s=>`<div class="pb${ns===s.k?" "+s.cls:""}" onclick="tapPart(${id},'${s.k}')" title="${s.title}">${s.icon}</div>`).join("");
+    if(btnsEl) btnsEl.innerHTML=ST.map(s=>`<div class="pb${ns===s.k?" "+s.cls:""}" onclick="tapPart(${id},'${s.k}')">${s.icon} ${s.label}</div>`).join("");
   }
   await patchDB("parts_list",`id=eq.${id}`,{status:ns});
 }

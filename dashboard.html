@@ -174,11 +174,12 @@ header{
 .flag-card-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .flag-delete-btn{background:none;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:11px;color:var(--text3);padding:4px 10px;cursor:pointer;transition:all .15s}
 .flag-delete-btn:hover{background:var(--red-bg);color:var(--red);border-color:var(--red)}
-.flag-note-area{width:100%;border:none;border-top:1px solid rgba(0,0,0,0.05);background:rgba(0,113,227,0.03);
-  font-family:var(--font);font-size:12px;color:var(--text);padding:12px 14px;outline:none;resize:none;
-  min-height:72px;line-height:1.6;transition:background .15s}
+.flag-note-area{display:block;width:100%;border:none;border-top:1px solid rgba(0,0,0,0.05);background:rgba(0,113,227,0.03);
+  font-family:var(--font);font-size:12px;color:var(--text);padding:8px 14px;outline:none;transition:background .15s}
 .flag-note-area:focus{background:rgba(0,113,227,0.06)}
 .flag-note-area::placeholder{color:var(--text3)}
+.fpart-row{display:flex;align-items:center;gap:8px;padding:5px 14px;border-bottom:1px solid rgba(0,0,0,.03)}
+.fpart-add{display:flex;gap:6px;padding:7px 14px;background:var(--surface2)}
 .pill:hover{border-color:var(--blue);color:var(--blue)}
 .pill.p-interested{border-color:var(--yellow);color:var(--yellow);background:var(--yellow-bg)}
 .pill.p-worked{border-color:var(--green);color:var(--green);background:var(--green-bg)}
@@ -545,18 +546,16 @@ function cycleFlag(stock){
     if(next==="incorrect") row.classList.add("incorrect");
   }
 
-  // Update flag card in-place — avoids wiping in-progress textarea notes
+  // Update flag card in-place — avoids wiping in-progress note/parts
   if(document.getElementById("tab-flagged").classList.contains("active")){
     const fcard = document.getElementById(`fcard-${stock}`);
     if(fcard){
-      // Save textarea draft before any DOM changes
-      const ta = fcard.querySelector('.flag-note-area');
-      const draft = ta ? ta.value : null;
-      // Replace pill in card header (keep delete button intact)
+      const noteEl = fcard.querySelector('.flag-note-area');
+      const draft = noteEl ? noteEl.value : null;
       const actionsDiv = fcard.querySelector('.flag-card-actions');
       if(actionsDiv){
         const delBtn = actionsDiv.querySelector('.flag-delete-btn');
-        const delHtml = delBtn ? delBtn.outerHTML : `<button class="flag-delete-btn" onclick="deleteFlagCompletely(${stock})">🗑 Remove</button>`;
+        const delHtml = delBtn ? delBtn.outerHTML : `<button class="flag-delete-btn" onclick="deleteFlagCompletely(${stock})">🗑</button>`;
         actionsDiv.innerHTML = pillHtml(stock) + delHtml;
       }
       if(next===null){
@@ -564,17 +563,29 @@ function cycleFlag(stock){
       } else if(next==='incorrect'){
         fcard.classList.add('flag-incorrect');
         fcard.querySelector('.flag-note-area')?.remove();
+        document.getElementById(`fparts-${stock}`)?.remove();
       } else {
         fcard.classList.remove('flag-incorrect');
-        const existingTa = fcard.querySelector('.flag-note-area');
-        if(!existingTa){
-          fcard.insertAdjacentHTML('beforeend',`<textarea class="flag-note-area" data-stock="${stock}" placeholder="Add parts or notes for checklist…" oninput="debounceNote(${stock},this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'" onfocus="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${getNote(stock)}</textarea>`);
-        } else if(draft!==null){
-          existingTa.value=draft;
+        const existingNote = fcard.querySelector('.flag-note-area');
+        const titleEl = fcard.querySelector('.flag-card-title');
+        const vname = titleEl ? titleEl.textContent.trim() : '';
+        if(!existingNote){
+          const noteVal = getNote(stock).replace(/"/g,'&quot;').replace(/\n/g,' ');
+          fcard.insertAdjacentHTML('beforeend',
+            `<input class="flag-note-area" data-stock="${stock}" placeholder="Worker note…" value="${noteVal}" oninput="debounceNote(${stock},this.value)">` +
+            `<div id="fparts-${stock}"></div>`
+          );
+          reloadFcardParts(stock, vname);
+        } else {
+          if(draft!==null) existingNote.value=draft;
+          if(!document.getElementById(`fparts-${stock}`)){
+            existingNote.insertAdjacentHTML('afterend',`<div id="fparts-${stock}"></div>`);
+            reloadFcardParts(stock, vname);
+          }
         }
       }
     } else if(next){
-      loadFlagged(); // card doesn't exist yet (new flag added while on flagged tab)
+      loadFlagged();
     }
   }
 }
@@ -841,7 +852,7 @@ async function loadParts(){
       for(const v of vrows) vMap[v.stock] = v;
     }
     if(!rows.length){
-      el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>No parts added yet.</div>${partsFormHtml()}`;
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>No parts yet.<br><span style="font-size:12px">Add parts from the <b>Flagged</b> tab</span></div>`;
       return;
     }
     // Group by stock_num or vehicle text
@@ -881,8 +892,8 @@ async function loadParts(){
       html += `<div class="section-label green">✓ Completed — ${done.length} vehicle${done.length>1?"s":""}</div>`;
       html += done.map(partsVehicleBlock).join("");
     }
-    el.innerHTML = html + partsFormHtml();
-  }catch(e){ el.innerHTML=`<div class="empty">Error loading parts: ${e.message}</div>`+partsFormHtml(); }
+    el.innerHTML = html;
+  }catch(e){ el.innerHTML=`<div class="empty">Error loading parts: ${e.message}</div>`; }
 }
 
 function partsVehicleBlock(g){
@@ -921,76 +932,6 @@ function partsVehicleBlock(g){
   return html;
 }
 
-function partsFormHtml(){
-  return `<div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
-    <div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:16px">
-      <div style="font-weight:600;margin-bottom:12px;font-size:13px">➕ Add Parts to Checklist</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input id="pVehicle" class="filter-input" placeholder="Vehicle  e.g. 2005 Honda Accord" style="width:100%">
-        <input id="pStock"   class="filter-input" placeholder="STK# (optional)" type="number" style="width:100%">
-      </div>
-      <textarea id="pParts" class="filter-input" rows="4" placeholder="Parts — one per line&#10;Driver door&#10;Alternator" style="width:100%;resize:none;line-height:1.6;margin-bottom:8px"></textarea>
-      <button class="btn btn-blue" onclick="addPartsFromDash()">Add to Checklist</button>
-    </div>
-    <div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:16px">
-      <div style="font-weight:600;margin-bottom:4px;font-size:13px">🚗 Add Vehicle to Tracker</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:12px">For vehicles not in the scraper — adds to Flagged list &amp; worker checklist</div>
-      <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;margin-bottom:8px">
-        <input id="mvYear"  class="filter-input" placeholder="Year"  type="number" style="width:100%">
-        <input id="mvMake"  class="filter-input" placeholder="Make"  style="width:100%">
-        <input id="mvModel" class="filter-input" placeholder="Model" style="width:100%">
-      </div>
-      <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;margin-bottom:8px">
-        <input id="mvRow" class="filter-input" placeholder="Row #" type="number" style="width:100%">
-        <input id="mvStk" class="filter-input" placeholder="STK# (required)" type="number" style="width:100%">
-      </div>
-      <button class="btn" style="background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange)" onclick="addManualVehicle()">Add to Tracker</button>
-    </div>
-  </div>`;
-}
-
-async function addPartsFromDash(){
-  const vehicle  = document.getElementById("pVehicle").value.trim();
-  const stockNum = document.getElementById("pStock").value.trim();
-  const partsRaw = document.getElementById("pParts").value;
-  if(!vehicle){ alert("Enter a vehicle name"); return; }
-  const parts = partsRaw.split("\n").map(p=>p.trim()).filter(Boolean);
-  if(!parts.length){ alert("Enter at least one part"); return; }
-  const rows = parts.map(part=>({vehicle, part, stock_num:stockNum||null, status:"pending"}));
-  await upsertRow("parts_list", rows);
-  loadParts();
-}
-
-async function addManualVehicle(){
-  const year   = document.getElementById("mvYear").value.trim();
-  const make   = document.getElementById("mvMake").value.trim();
-  const model  = document.getElementById("mvModel").value.trim();
-  const row    = document.getElementById("mvRow").value.trim();
-  const stkRaw = document.getElementById("mvStk").value.trim();
-  if(!make){ alert("Enter vehicle make"); return; }
-  if(!stkRaw){ alert("STK# is required to add to tracker"); return; }
-  const stock = parseInt(stkRaw);
-  if(isNaN(stock)){ alert("STK# must be a number"); return; }
-  const today = new Date().toISOString().slice(0,10);
-  const vehicleData = {stock, first_seen_date:today, is_active:true};
-  if(year)  vehicleData.year  = parseInt(year);
-  if(make)  vehicleData.make  = make;
-  if(model) vehicleData.model = model;
-  if(row)   vehicleData.row   = parseInt(row);
-  await fetch(`${SUPABASE_URL}/rest/v1/vehicles?on_conflict=stock`,{
-    method:"POST",
-    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
-    body: JSON.stringify(vehicleData)
-  });
-  await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?on_conflict=stock`,{
-    method:"POST",
-    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
-    body: JSON.stringify({stock, flag:"interested", note:"", updated_at:new Date().toISOString()})
-  });
-  _flagCache[stock] = {flag:"interested", note:""};
-  alert(`Added ${[year,make,model].filter(Boolean).join(" ")} STK${stock} to tracker.\nNow add parts using the form below.`);
-  loadParts();
-}
 
 async function _loadPartsData(){
   const rows = await query("parts_list","?select=*&order=stock_num.asc.nullslast,id.asc");
@@ -1091,71 +1032,160 @@ async function resetAllParts(){
 
 async function loadFlagged(){
   const el = document.getElementById("flaggedContent");
-  // Preserve any in-progress note text before re-rendering
   const draft={};
-  el.querySelectorAll('.flag-note-area[data-stock]').forEach(ta=>{ draft[ta.dataset.stock]=ta.value; });
+  el.querySelectorAll('.flag-note-area[data-stock]').forEach(inp=>{ draft[inp.dataset.stock]=inp.value; });
   const flags = getFlags();
-  const activeStocks = Object.keys(flags).map(Number).filter(s=>flags[s.toString()]!=="incorrect" && flags[s]!=="incorrect");
-  const incorrectStocks = Object.keys(flags).map(Number).filter(s=>flags[s.toString()]==="incorrect" || flags[s]==="incorrect");
-
+  const activeStocks = Object.keys(flags).map(Number).filter(s=>flags[s.toString()]!=="incorrect"&&flags[s]!=="incorrect");
+  const incorrectStocks = Object.keys(flags).map(Number).filter(s=>flags[s.toString()]==="incorrect"||flags[s]==="incorrect");
   if(!activeStocks.length && !incorrectStocks.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">⭐</div>No flagged vehicles yet.</div>`;
+    el.innerHTML=`<div class="empty"><div class="empty-icon">⭐</div>No flagged vehicles yet.</div>
+      <div style="text-align:center;padding-bottom:20px">${manualVehicleFormHtml()}</div>`;
     return;
   }
   try{
-    const allStocks = [...new Set([...activeStocks,...incorrectStocks])];
-    const rows = await query("vehicles",`?stock=in.(${allStocks.join(",")})&select=*`);
-    const vMap = {};
-    for(const r of rows) vMap[r.stock] = r;
+    const allStocks=[...new Set([...activeStocks,...incorrectStocks])];
+    const [vrows, allParts] = await Promise.all([
+      query("vehicles",`?stock=in.(${allStocks.join(",")})&select=*`),
+      query("parts_list",`?stock_num=in.(${allStocks.join(",")})&select=*&order=id.asc`)
+    ]);
+    const vMap={};
+    for(const r of vrows) vMap[r.stock]=r;
+    const partsMap={};
+    for(const p of allParts){ const sn=Number(p.stock_num); if(!partsMap[sn]) partsMap[sn]=[]; partsMap[sn].push(p); }
 
     function flagCard(stock){
-      const v = vMap[stock];
-      if(!v) return "";
-      const flagVal = flags[stock] || flags[String(stock)];
-      const note = getNote(stock);
-      const ref = v.confirmed_add_date || v.estimated_add_date;
-      const days = ref ? Math.round((new Date()-new Date(ref+"T12:00:00"))/86400000) + getDaysOffset() : null;
-      const isIncorrect = flagVal === "incorrect";
+      const v=vMap[stock]; if(!v) return "";
+      const flagVal=flags[stock]||flags[String(stock)];
+      const note=getNote(stock);
+      const ref=v.confirmed_add_date||v.estimated_add_date;
+      const days=ref?Math.round((new Date()-new Date(ref+"T12:00:00"))/86400000)+getDaysOffset():null;
+      const isIncorrect=flagVal==="incorrect";
+      const vname=`${v.year||""} ${v.make||""} ${v.model||""}`.trim();
+      const parts=partsMap[stock]||[];
       return `<div class="flag-card ${isIncorrect?'flag-incorrect':''}" id="fcard-${stock}">
         <div class="flag-card-header">
           <div class="flag-card-info">
             <span class="flag-card-stock">STK${stock}</span>
-            <span class="flag-card-title">${v.year||""} ${v.make||""} ${v.model||""}</span>
+            <span class="flag-card-title">${vname}</span>
             ${v.row?`<span class="flag-card-meta">Row ${v.row}</span>`:""}
             ${days!==null?`<span class="flag-card-meta">${days}d on lot</span>`:""}
           </div>
           <div class="flag-card-actions">
             ${pillHtml(stock)}
-            <button class="flag-delete-btn" onclick="deleteFlagCompletely(${stock})">🗑 Remove</button>
+            <button class="flag-delete-btn" onclick="deleteFlagCompletely(${stock})">🗑</button>
           </div>
         </div>
-        ${!isIncorrect?`<textarea class="flag-note-area" data-stock="${stock}" placeholder="Add parts or notes for checklist…"
-          oninput="debounceNote(${stock},this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'"
-          onfocus="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
-        >${note}</textarea>`:""}
+        ${!isIncorrect?`
+          <input class="flag-note-area" data-stock="${stock}" placeholder="Worker note…"
+            value="${note.replace(/"/g,'&quot;').replace(/\n/g,' ')}"
+            oninput="debounceNote(${stock},this.value)">
+          <div id="fparts-${stock}">${renderFcardParts(stock,vname,parts)}</div>
+        `:""}
       </div>`;
     }
 
-    let html="";
-    const interested = activeStocks.filter(s=>(flags[s]||flags[String(s)])==="interested");
-    const worked     = activeStocks.filter(s=>(flags[s]||flags[String(s)])==="worked");
-
-    if(interested.length){
-      html+=`<div class="section-label orange">⭐ Interested — ${interested.length}</div>`;
-      html+=interested.map(flagCard).join("");
-    }
-    if(worked.length){
-      html+=`<div class="section-label" style="color:var(--green)">✓ Worked On — ${worked.length}</div>`;
-      html+=worked.map(flagCard).join("");
-    }
-    if(incorrectStocks.length){
-      html+=`<div class="section-label red">✗ Incorrect — ${incorrectStocks.length}</div>`;
-      html+=incorrectStocks.map(flagCard).join("");
-    }
+    const pendingCt=allParts.filter(p=>!p.status||p.status==="pending").length;
+    let html=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green)" onclick="exportWhatsApp()">📱 Send to Worker${pendingCt?" ("+pendingCt+" pending)":""}</button>
+      <button class="btn btn-sm" onclick="toggleManualForm()">＋ Add Vehicle</button>
+    </div>
+    ${manualVehicleFormHtml()}`;
+    const interested=activeStocks.filter(s=>(flags[s]||flags[String(s)])==="interested");
+    const worked=activeStocks.filter(s=>(flags[s]||flags[String(s)])==="worked");
+    if(interested.length){ html+=`<div class="section-label orange">⭐ Interested — ${interested.length}</div>`+interested.map(flagCard).join(""); }
+    if(worked.length){ html+=`<div class="section-label" style="color:var(--green)">✓ Worked On — ${worked.length}</div>`+worked.map(flagCard).join(""); }
+    if(incorrectStocks.length){ html+=`<div class="section-label red">✗ Incorrect — ${incorrectStocks.length}</div>`+incorrectStocks.map(flagCard).join(""); }
     el.innerHTML=html||`<div class="empty">None</div>`;
-    // Restore in-progress note text
-    el.querySelectorAll('.flag-note-area[data-stock]').forEach(ta=>{ if(draft[ta.dataset.stock]!==undefined) ta.value=draft[ta.dataset.stock]; });
+    el.querySelectorAll('.flag-note-area[data-stock]').forEach(inp=>{ if(draft[inp.dataset.stock]!==undefined) inp.value=draft[inp.dataset.stock]; });
   }catch(e){ el.innerHTML=`<div class="empty">Error: ${e.message}</div>`; }
+}
+
+function renderFcardParts(stock, vname, parts){
+  const sv=vname.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  let html=`<div style="border-top:1px solid rgba(0,0,0,.05)">`;
+  if(parts.length){
+    for(const p of parts){
+      const s=PART_ST[p.status]||PART_PENDING;
+      const isPending=!p.status||p.status==="pending";
+      const crossed=!isPending&&(p.status==="complete"||p.status==="found");
+      html+=`<div class="fpart-row">
+        <span style="font-size:12px;width:16px;text-align:center;flex-shrink:0;color:${isPending?"var(--text3)":s.color}">${s.icon}</span>
+        <span style="flex:1;font-size:12px;${crossed?"text-decoration:line-through;color:var(--text3)":""}">${p.part}</span>
+        ${!isPending?`<span style="font-size:10px;padding:1px 6px;border-radius:20px;background:${s.bg};color:${s.color};flex-shrink:0">${s.label}</span>`:""}
+        <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px;line-height:1;flex-shrink:0" onclick="deletePartInline(${p.id},${stock},'${sv}')">×</button>
+      </div>`;
+    }
+  } else {
+    html+=`<div style="padding:5px 14px;font-size:11px;color:var(--text3);font-style:italic">No parts yet — add below</div>`;
+  }
+  html+=`<div class="fpart-add">
+    <input class="filter-input" id="fp-${stock}" placeholder="Add a part…" style="flex:1;font-size:12px;padding:5px 9px"
+      onkeydown="if(event.key==='Enter')addPartInline(${stock},'${sv}')">
+    <button class="btn btn-sm" onclick="addPartInline(${stock},'${sv}')">＋</button>
+  </div></div>`;
+  return html;
+}
+
+async function reloadFcardParts(stock, vname){
+  const el=document.getElementById(`fparts-${stock}`); if(!el) return;
+  const rows=await query("parts_list",`?stock_num=eq.${stock}&select=*&order=id.asc`);
+  el.innerHTML=renderFcardParts(stock,vname,rows);
+}
+
+async function addPartInline(stock, vname){
+  const input=document.getElementById(`fp-${stock}`); if(!input) return;
+  const part=input.value.trim(); if(!part) return;
+  input.value="";
+  await upsertRow("parts_list",[{vehicle:vname,part,stock_num:String(stock),status:"pending"}]);
+  reloadFcardParts(stock,vname);
+}
+
+async function deletePartInline(id,stock,vname){
+  await fetch(`${SUPABASE_URL}/rest/v1/parts_list?id=eq.${id}`,{method:"DELETE",headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}});
+  reloadFcardParts(stock,vname);
+}
+
+function manualVehicleFormHtml(){
+  return `<div id="manualVehicleForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
+    <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--text2)">Add Vehicle Not in Scraper</div>
+    <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:6px;margin-bottom:6px">
+      <input id="mvYear"  class="filter-input" placeholder="Year"  type="number" style="width:100%">
+      <input id="mvMake"  class="filter-input" placeholder="Make"  style="width:100%">
+      <input id="mvModel" class="filter-input" placeholder="Model" style="width:100%">
+    </div>
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:6px;margin-bottom:10px">
+      <input id="mvRow" class="filter-input" placeholder="Row #" type="number" style="width:100%">
+      <input id="mvStk" class="filter-input" placeholder="STK# (required)" type="number" style="width:100%">
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-sm" style="background:var(--orange-bg);color:var(--orange)" onclick="addManualVehicle()">Add to Flagged</button>
+      <button class="btn btn-sm" onclick="toggleManualForm()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function toggleManualForm(){
+  const f=document.getElementById("manualVehicleForm"); if(!f) return;
+  f.style.display=f.style.display==="none"?"block":"none";
+}
+
+async function addManualVehicle(){
+  const year=document.getElementById("mvYear").value.trim();
+  const make=document.getElementById("mvMake").value.trim();
+  const model=document.getElementById("mvModel").value.trim();
+  const row=document.getElementById("mvRow").value.trim();
+  const stkRaw=document.getElementById("mvStk").value.trim();
+  if(!make){ alert("Enter vehicle make"); return; }
+  if(!stkRaw){ alert("STK# is required"); return; }
+  const stock=parseInt(stkRaw);
+  if(isNaN(stock)){ alert("STK# must be a number"); return; }
+  const today=new Date().toISOString().slice(0,10);
+  const vd={stock,first_seen_date:today,is_active:true};
+  if(year) vd.year=parseInt(year); if(make) vd.make=make; if(model) vd.model=model; if(row) vd.row=parseInt(row);
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicles?on_conflict=stock`,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(vd)});
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?on_conflict=stock`,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({stock,flag:"interested",note:"",updated_at:new Date().toISOString()})});
+  _flagCache[stock]={flag:"interested",note:""};
+  loadFlagged();
 }
 
 async function deleteFlagCompletely(stock){
