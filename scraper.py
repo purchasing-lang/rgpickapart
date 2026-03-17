@@ -220,8 +220,44 @@ def get_last_snapshot() -> Optional[dict]:
 
 
 def get_active_stocks() -> set[int]:
-    result = db.table("vehicles").select("stock").eq("is_active", True).execute()
-    return {row["stock"] for row in result.data}
+    """All currently-active stock numbers.  Paginates to bypass Supabase's 1000-row default limit."""
+    all_stocks: set[int] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        result = (
+            db.table("vehicles").select("stock")
+            .eq("is_active", True)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        if not result.data:
+            break
+        all_stocks.update(row["stock"] for row in result.data)
+        if len(result.data) < page_size:
+            break
+        offset += page_size
+    return all_stocks
+
+
+def get_all_known_stocks() -> set[int]:
+    """Every stock number ever recorded (active + inactive).  Used to detect truly new arrivals."""
+    all_stocks: set[int] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        result = (
+            db.table("vehicles").select("stock")
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        if not result.data:
+            break
+        all_stocks.update(row["stock"] for row in result.data)
+        if len(result.data) < page_size:
+            break
+        offset += page_size
+    return all_stocks
 
 
 def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> dict:
@@ -229,18 +265,19 @@ def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> d
 
     last_snapshot = get_last_snapshot()
     if last_snapshot:
-        prev_stocks  = get_active_stocks()
+        prev_active  = get_active_stocks()        # stocks active on last run  (paginated)
+        all_known    = get_all_known_stocks()      # every stock ever in the DB  (paginated)
         days_skipped = (today - date.fromisoformat(last_snapshot["snapshot_date"])).days - 1
         if days_skipped > 0:
             log.warning("Missed %d day(s) since last scrape — gap noted, comparisons still valid", days_skipped)
     else:
-        prev_stocks  = set()
-        days_skipped = 0
+        prev_active = set()
+        all_known   = set()
 
-    # ── NEW vehicles ──────────────────────────────────────────────────────────
-    new_stocks   = current_stocks - prev_stocks
+    # ── TRULY NEW — stock number has never appeared in the vehicles table ─────
+    new_stocks   = current_stocks - all_known
     new_vehicles = [v for v in vehicles if v["stock"] in new_stocks]
-    log.info("New vehicles: %d", len(new_vehicles))
+    log.info("Truly new vehicles: %d", len(new_vehicles))
 
     if new_vehicles:
         batch = []
@@ -259,12 +296,23 @@ def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> d
                 "last_seen_date":     today.isoformat(),
             })
         for i in range(0, len(batch), 100):
-            db.table("vehicles").upsert(batch[i:i+100], on_conflict="stock").execute()
-        log.info("Inserted %d new vehicles in %d batches", len(batch), -(-len(batch)//100))
+            # INSERT only — never overwrite first_seen_date on existing rows
+            db.table("vehicles").insert(batch[i:i+100], ignore_duplicates=True).execute()
+        log.info("Inserted %d new vehicles in %d batches", len(batch), -(-len(batch) // 100))
 
-    # ── STILL PRESENT — update last_seen + row in batches ────────────────────
-    # Use update (NOT upsert) to avoid touching NOT NULL cols like first_seen_date
-    still_present = [v for v in vehicles if v["stock"] in (current_stocks & prev_stocks)]
+    # ── RETURNED — was in DB (inactive), now back on the lot ─────────────────
+    returned_stocks = (current_stocks - prev_active) & all_known
+    if returned_stocks:
+        log.info("Vehicles returned to lot: %d", len(returned_stocks))
+        db.table("vehicles").update({
+            "is_active":      True,
+            "last_seen_date": today.isoformat(),
+            "removed_date":   None,
+        }).in_("stock", list(returned_stocks)).execute()
+
+    # ── STILL PRESENT — update last_seen + row ────────────────────────────────
+    still_present_stocks = current_stocks & prev_active
+    still_present = [v for v in vehicles if v["stock"] in still_present_stocks]
     for i in range(0, len(still_present), 100):
         chunk_stocks = [v["stock"] for v in still_present[i:i+100]]
         db.table("vehicles").update({
@@ -278,8 +326,8 @@ def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> d
                 "raw_text": v["raw_text"],
             }).eq("stock", v["stock"]).execute()
 
-    # ── REMOVED — single call ─────────────────────────────────────────────────
-    removed_stocks = prev_stocks - current_stocks
+    # ── REMOVED ───────────────────────────────────────────────────────────────
+    removed_stocks = prev_active - current_stocks
     log.info("Vehicles removed: %d", len(removed_stocks))
     if removed_stocks:
         db.table("vehicles").update({
@@ -287,7 +335,7 @@ def upsert_vehicles(vehicles: list[dict], anchors: list[dict], today: date) -> d
             "removed_date": today.isoformat(),
         }).in_("stock", list(removed_stocks)).execute()
 
-    # ── Daily snapshot ─────────────────────────────────────────────────────────
+    # ── Daily snapshot — added_count reflects only truly new stocks ───────────
     db.table("daily_snapshots").upsert({
         "snapshot_date":  today.isoformat(),
         "total_active":   len(current_stocks),

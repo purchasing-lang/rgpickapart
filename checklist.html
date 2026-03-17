@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>RG Checklist</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f2f7;--surface:#ffffff;--border:rgba(0,0,0,0.09);
+  --text:#1c1c1e;--text2:#6c6c70;--text3:#aeaeb2;
+  --green:#28a745;--green-bg:rgba(40,167,69,0.13);
+  --red:#dc3545;--red-bg:rgba(220,53,69,0.13);
+  --orange:#f4650a;--orange-bg:rgba(244,101,10,0.13);
+  --purple:#7a4cf5;--purple-bg:rgba(122,76,245,0.13);
+  --blue:#0071e3;--blue-bg:rgba(0,113,227,0.10);
+  --yellow:#ff9500;--yellow-bg:rgba(255,149,0,0.13);
+  --font:'DM Sans',-apple-system,sans-serif;
+  --mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+
+/* ── Header ── */
+header{
+  background:rgba(242,242,247,0.94);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+  padding:12px 16px 10px;
+}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.logo{font-size:17px;font-weight:700;letter-spacing:-0.4px}
+.logo em{font-style:normal;color:var(--text2);font-weight:400;font-size:13px;margin-left:6px}
+.header-counts{display:flex;gap:8px}
+.count-pill{font-size:12px;font-weight:600;padding:3px 11px;border-radius:20px}
+.count-pending{background:var(--yellow-bg);color:var(--yellow)}
+.count-done{background:var(--green-bg);color:var(--green)}
+
+/* ── Filter tabs ── */
+.filter-tabs{display:flex;gap:3px;background:rgba(0,0,0,0.06);border-radius:10px;padding:3px}
+.ftab{flex:1;border:none;background:transparent;border-radius:7px;font-family:var(--font);font-size:13px;font-weight:500;padding:7px 4px;cursor:pointer;color:var(--text2);transition:all .15s;user-select:none}
+.ftab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.10)}
+
+/* ── Content ── */
+.content{padding:12px 12px 96px}
+
+/* ── Vehicle card ── */
+.vehicle-card{
+  background:var(--surface);
+  border-radius:14px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.07);
+  margin-bottom:12px;
+  overflow:hidden;
+  transition:opacity .2s;
+}
+.vehicle-card.is-done{opacity:.58}
+
+.card-info{padding:14px 16px 12px}
+.card-meta{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap}
+.card-row{font-size:13px;font-weight:700;color:var(--text2)}
+.card-stock{font-family:var(--mono);font-size:11px;color:var(--blue);font-weight:600}
+.card-flag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.flag-interested{background:var(--yellow-bg);color:var(--yellow)}
+.flag-worked{background:var(--green-bg);color:var(--green)}
+
+.status-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.2px}
+.badge-complete{background:var(--green-bg);color:var(--green)}
+.badge-broken{background:var(--orange-bg);color:var(--orange)}
+.badge-not_there{background:var(--red-bg);color:var(--red)}
+.badge-couldnt_remove{background:var(--purple-bg);color:var(--purple)}
+
+.card-title{font-size:18px;font-weight:600;letter-spacing:-0.4px;line-height:1.2}
+.card-note{
+  margin-top:9px;padding:9px 11px;
+  background:var(--blue-bg);border-radius:8px;
+  font-size:13px;line-height:1.55;color:var(--text2);
+  white-space:pre-wrap;word-break:break-word
+}
+
+/* ── Action buttons (2×2 grid) ── */
+.card-actions{
+  display:grid;grid-template-columns:1fr 1fr;
+  border-top:1px solid var(--border);
+  gap:1px;background:var(--border);
+}
+.action-btn{
+  border:none;background:var(--surface);
+  font-family:var(--font);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  padding:16px 8px;min-height:76px;
+  transition:background .12s,color .12s;
+  user-select:none;-webkit-user-select:none;
+}
+.action-btn:active{filter:brightness(.90)}
+.btn-icon{font-size:22px;line-height:1}
+.btn-label{font-size:12px;font-weight:600;letter-spacing:.1px}
+
+/* Active states */
+.btn-complete.active   {background:var(--green-bg);color:var(--green)}
+.btn-broken.active     {background:var(--orange-bg);color:var(--orange)}
+.btn-not_there.active  {background:var(--red-bg);color:var(--red)}
+.btn-couldnt.active    {background:var(--purple-bg);color:var(--purple)}
+
+/* ── Loading / Empty ── */
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:72px 20px;color:var(--text3);font-size:14px}
+.spinner{width:18px;height:18px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:72px 20px;color:var(--text3);font-size:15px}
+.empty-icon{font-size:36px;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="logo">RG Checklist <em id="totalLabel"></em></div>
+    <div class="header-counts">
+      <span class="count-pill count-pending" id="pendingCount">—</span>
+      <span class="count-pill count-done" id="doneCount">—</span>
+    </div>
+  </div>
+  <div class="filter-tabs">
+    <button class="ftab active" onclick="setFilter('all',this)">All</button>
+    <button class="ftab" onclick="setFilter('pending',this)">Pending</button>
+    <button class="ftab" onclick="setFilter('done',this)">Done</button>
+  </div>
+</header>
+
+<div class="content" id="content">
+  <div class="loading"><div class="spinner"></div>Loading…</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://maxvxqovqlugnifrabvy.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHZ4cW92cWx1Z25pZnJhYnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzU5NDgsImV4cCI6MjA4OTAxMTk0OH0.XILjOkLmwd9qF_DlKZLmsUmRX-UPMMW9DwCTzF6k9_I";
+
+let allItems = [];
+let currentFilter = 'all';
+
+async function api(path, opts={}){
+  const r = await fetch(SUPABASE_URL + path, {
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`, ...(opts.headers||{})},
+    ...opts
+  });
+  if(!r.ok) throw new Error(await r.text());
+  if(opts.method && opts.method !== "GET") return null;
+  return r.json();
+}
+
+async function load(){
+  const el = document.getElementById("content");
+  try{
+    // Load all flags (excluding incorrect — those aren't actionable)
+    const flags = await api("/rest/v1/vehicle_flags?flag=neq.incorrect&select=stock,flag,note,checklist_status&order=stock.asc");
+    if(!flags.length){
+      el.innerHTML=`<div class="empty"><div class="empty-icon">📋</div>No flagged vehicles yet.<br><br>Flag vehicles in the dashboard first.</div>`;
+      updateCounts([]);
+      return;
+    }
+    const stocks = flags.map(f=>f.stock);
+    const vehicles = await api(`/rest/v1/vehicles?stock=in.(${stocks.join(",")})&select=stock,year,make,model,row`);
+    const vmap={};
+    for(const v of vehicles) vmap[v.stock]=v;
+
+    allItems = flags
+      .map(f=>({...f, vehicle:vmap[f.stock]||null}))
+      .filter(f=>f.vehicle)
+      .sort((a,b)=>{
+        const ra=a.vehicle.row??99999, rb=b.vehicle.row??99999;
+        return ra!==rb ? ra-rb : a.stock-b.stock;
+      });
+
+    updateCounts(allItems);
+    render();
+  }catch(e){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div>Error: ${e.message}</div>`;
+  }
+}
+
+function updateCounts(items){
+  const done    = items.filter(i=>i.checklist_status).length;
+  const pending = items.filter(i=>!i.checklist_status).length;
+  document.getElementById("totalLabel").textContent = items.length ? `${items.length} vehicles` : "";
+  document.getElementById("pendingCount").textContent = `${pending} pending`;
+  document.getElementById("doneCount").textContent    = `${done} done`;
+}
+
+function setFilter(f, btn){
+  currentFilter=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+// Status config: key matches checklist_status value in DB
+const STATUSES=[
+  {key:'complete',       cls:'btn-complete',  icon:'✓', label:'Complete'},
+  {key:'broken',         cls:'btn-broken',    icon:'🔧',label:'Broken'},
+  {key:'not_there',      cls:'btn-not_there', icon:'✗', label:'Not There'},
+  {key:'couldnt_remove', cls:'btn-couldnt',   icon:'⚠', label:"Couldn't Remove"},
+];
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function statusBadgeHtml(status){
+  const cfg=STATUSES.find(s=>s.key===status);
+  if(!cfg) return '';
+  return `<span class="status-badge badge-${status}">${cfg.icon} ${cfg.label}</span>`;
+}
+
+function cardHtml(item){
+  const v=item.vehicle;
+  const st=item.checklist_status;
+  const rowLabel = v.row ? `Row ${v.row}` : 'Row —';
+  const flagLabel = item.flag==='worked' ? 'Worked On' : 'Interested';
+  const flagCls   = item.flag==='worked' ? 'flag-worked' : 'flag-interested';
+
+  const btns = STATUSES.map(cfg=>{
+    const active = st===cfg.key;
+    return `<button class="action-btn ${cfg.cls}${active?' active':''}"
+      onclick="tapStatus(${item.stock},'${cfg.key}')"
+      aria-label="${cfg.label}${active?' — active':''}">
+      <span class="btn-icon">${cfg.icon}</span>
+      <span class="btn-label">${cfg.label}</span>
+    </button>`;
+  }).join('');
+
+  return `<div class="vehicle-card${st?' is-done':''}" id="card-${item.stock}">
+    <div class="card-info">
+      <div class="card-meta">
+        <span class="card-row">${rowLabel}</span>
+        <span class="card-stock">STK${item.stock}</span>
+        <span class="card-flag ${flagCls}">${flagLabel}</span>
+        ${st ? statusBadgeHtml(st) : ''}
+      </div>
+      <div class="card-title">${v.year||'?'} ${v.make||'Unknown'} ${v.model||''}</div>
+      ${item.note ? `<div class="card-note">${escHtml(item.note)}</div>` : ''}
+    </div>
+    <div class="card-actions">${btns}</div>
+  </div>`;
+}
+
+function render(){
+  const el=document.getElementById("content");
+  let items=allItems;
+  if(currentFilter==='pending') items=allItems.filter(i=>!i.checklist_status);
+  if(currentFilter==='done')    items=allItems.filter(i=> i.checklist_status);
+  if(!items.length){
+    const msgs={all:"No flagged vehicles yet",pending:"All done! Nothing pending. 🎉",done:"Nothing marked as done yet."};
+    el.innerHTML=`<div class="empty"><div class="empty-icon">${currentFilter==='done'?'🎉':'📋'}</div>${msgs[currentFilter]}</div>`;
+    return;
+  }
+  el.innerHTML=items.map(cardHtml).join('');
+}
+
+async function tapStatus(stock, statusKey){
+  const item=allItems.find(i=>i.stock===stock);
+  if(!item) return;
+
+  // Toggle: tapping the active status clears it back to null
+  const newStatus = item.checklist_status===statusKey ? null : statusKey;
+  item.checklist_status=newStatus;
+
+  // Optimistic update
+  updateCardInPlace(item);
+  updateCounts(allItems);
+
+  // Re-render filtered view after brief visual feedback delay
+  if(currentFilter!=='all') setTimeout(()=>render(), 380);
+
+  // Persist to DB
+  try{
+    await api(`/rest/v1/vehicle_flags?stock=eq.${stock}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({checklist_status:newStatus})
+    });
+  }catch(e){
+    // Revert on failure
+    item.checklist_status = statusKey;
+    updateCardInPlace(item);
+    updateCounts(allItems);
+    alert('Save failed: '+e.message);
+  }
+}
+
+function updateCardInPlace(item){
+  const card=document.getElementById(`card-${item.stock}`);
+  if(!card) return;
+  const st=item.checklist_status;
+
+  // Done opacity
+  card.classList.toggle('is-done', !!st);
+
+  // Update status badge in meta row
+  const meta=card.querySelector('.card-meta');
+  if(meta){
+    meta.querySelector('.status-badge')?.remove();
+    if(st) meta.insertAdjacentHTML('beforeend', statusBadgeHtml(st));
+  }
+
+  // Update button active states
+  STATUSES.forEach(cfg=>{
+    const btn=card.querySelector(`.${cfg.cls}`);
+    if(btn){
+      btn.classList.toggle('active', st===cfg.key);
+      btn.setAttribute('aria-label', cfg.label+(st===cfg.key?' — active':''));
+    }
+  });
+}
+
+load();
+</script>
+</body>
+</html>

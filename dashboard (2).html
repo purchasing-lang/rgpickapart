@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RG Pick-A-Part</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:         #f2f2f7;
+  --surface:    #ffffff;
+  --surface2:   #f9f9fb;
+  --border:     rgba(0,0,0,0.09);
+  --border2:    rgba(0,0,0,0.05);
+  --text:       #1c1c1e;
+  --text2:      #6c6c70;
+  --text3:      #aeaeb2;
+  --green:      #28a745;
+  --green-bg:   rgba(40,167,69,0.10);
+  --red:        #dc3545;
+  --red-bg:     rgba(220,53,69,0.10);
+  --blue:       #0071e3;
+  --blue-bg:    rgba(0,113,227,0.10);
+  --orange:     #f4650a;
+  --orange-bg:  rgba(244,101,10,0.10);
+  --purple:     #7a4cf5;
+  --purple-bg:  rgba(122,76,245,0.10);
+  --yellow:     #ff9500;
+  --yellow-bg:  rgba(255,149,0,0.10);
+  --radius:     16px;
+  --radius-sm:  10px;
+  --radius-xs:  7px;
+  --shadow:     0 2px 16px rgba(0,0,0,0.06);
+  --shadow-lg:  0 8px 40px rgba(0,0,0,0.11);
+  --font:       'DM Sans', -apple-system, sans-serif;
+  --mono:       'DM Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;min-height:100vh}
+
+/* ── Header ── */
+header{
+  background:rgba(242,242,247,0.88);
+  backdrop-filter:saturate(200%) blur(24px);
+  -webkit-backdrop-filter:saturate(200%) blur(24px);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:200;
+  height:58px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 28px;
+}
+.logo{font-size:16px;font-weight:700;letter-spacing:-0.4px;color:var(--text)}
+.logo em{font-style:normal;color:var(--text2);font-weight:400;font-size:14px;margin-left:8px}
+.header-right{display:flex;align-items:center;gap:10px}
+.last-run{font-size:12px;color:var(--text3)}
+.btn{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:20px;font-family:var(--font);font-size:13px;font-weight:500;padding:7px 15px;cursor:pointer;transition:opacity .15s}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-blue:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:12px}
+
+/* ── Page ── */
+.page{max-width:1360px;margin:0 auto;padding:24px 28px}
+
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+.stat-card{
+  background:var(--surface);border-radius:var(--radius);
+  padding:18px 20px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:4px;
+  transition:transform .2s,box-shadow .2s;cursor:default;
+}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.stat-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:6px}
+.si-green{background:var(--green-bg)} .si-red{background:var(--red-bg)} .si-blue{background:var(--blue-bg)} .si-yellow{background:var(--yellow-bg)} .si-purple{background:var(--purple-bg)}
+.stat-val{font-size:30px;font-weight:700;letter-spacing:-1px;line-height:1}
+.stat-label{font-size:12px;color:var(--text2)}
+
+/* ── Layout ── */
+.layout{display:grid;grid-template-columns:1fr 292px;gap:18px;align-items:start}
+
+/* ── Card ── */
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.card-inner{padding:20px 22px}
+.card-title{font-size:15px;font-weight:600;letter-spacing:-.3px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border2)}
+
+/* ── Filter bar ── */
+.filter-bar{
+  padding:14px 22px;
+  border-bottom:1px solid var(--border2);
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  background:var(--surface2);
+}
+.filter-input,.filter-select{
+  background:var(--bg);border:1px solid transparent;
+  border-radius:var(--radius-xs);color:var(--text);
+  font-family:var(--font);font-size:13px;
+  padding:7px 11px;outline:none;transition:all .15s;
+}
+.filter-input{min-width:100px}
+.filter-input:focus,.filter-select:focus{background:var(--surface);border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+.filter-select{cursor:pointer}
+.filter-clear{background:transparent;border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text2);font-family:var(--font);font-size:12px;padding:7px 11px;cursor:pointer;transition:all .15s}
+.filter-clear:hover{border-color:var(--red);color:var(--red)}
+
+/* ── Tabs ── */
+.tabs-wrap{padding:14px 22px 0;background:var(--surface)}
+.tabs{display:flex;gap:2px;background:var(--bg);border-radius:10px;padding:3px}
+.tab{flex:1;background:transparent;border:none;border-radius:7px;color:var(--text2);font-family:var(--font);font-size:13px;font-weight:500;padding:7px 8px;cursor:pointer;transition:all .18s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.09)}
+.tab-content{display:none;padding:18px 22px}
+.tab-content.active{display:block}
+
+/* ── Section label ── */
+.section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;margin-top:18px}
+.section-label:first-child{margin-top:0}
+.section-label.green{color:var(--green)}
+.section-label.red{color:var(--red)}
+.section-label.orange{color:var(--orange)}
+
+/* ── Column headers ── */
+.col-headers{
+  display:grid;
+  grid-template-columns:56px 90px 48px 120px 1fr 88px 88px 100px;
+  padding:0 10px;margin-bottom:2px;
+}
+.col-h{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:3px}
+.col-h:hover{color:var(--text2)}
+.col-h.sort-asc::after{content:" ↑"}
+.col-h.sort-desc::after{content:" ↓"}
+.col-h.right{justify-content:flex-end}
+
+/* ── Vehicle row ── */
+.vehicle-list{display:flex;flex-direction:column}
+.vehicle-row{
+  display:grid;
+  grid-template-columns:56px 90px 48px 120px 1fr 88px 88px 100px;
+  align-items:center;padding:10px 10px;
+  border-radius:var(--radius-xs);
+  transition:background .1s;
+  border-bottom:1px solid var(--border2);
+}
+.vehicle-row:last-child{border-bottom:none}
+.vehicle-row:hover{background:var(--bg)}
+.vehicle-row.worked{opacity:.55}
+.vehicle-row.incorrect{opacity:.35;text-decoration:line-through}
+
+.v-row-num{font-size:13px;font-weight:600;color:var(--text2);font-family:var(--mono)}
+.v-stock{font-size:12px;font-weight:600;color:var(--text2);font-family:var(--mono)}
+.v-stock.new{color:var(--green)}
+.v-stock.gone{color:var(--red)}
+.v-year{font-size:14px;font-weight:500}
+.v-make{font-size:14px;font-weight:500}
+.v-model{font-size:13px;color:var(--text2)}
+.v-date{font-size:12px;color:var(--text3);text-align:right}
+.v-days{font-size:12px;font-weight:600;color:var(--yellow);text-align:right}
+
+/* ── Action pills ── */
+.actions{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}
+.pill{border:1px solid var(--border);border-radius:20px;background:transparent;font-family:var(--font);font-size:11px;font-weight:500;padding:3px 10px;cursor:pointer;transition:all .15s;color:var(--text2);white-space:nowrap}
+.pill-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.note-input{border:1px solid var(--border);border-radius:6px;background:var(--bg);font-family:var(--font);font-size:11px;color:var(--text);padding:3px 8px;outline:none;width:160px;transition:border-color .15s}
+.note-input:focus{border-color:var(--blue);background:var(--surface)}
+.flag-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:8px 16px;overflow:hidden}
+.flag-card.flag-incorrect{opacity:.5}
+.flag-card-header{padding:12px 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.flag-card-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.flag-card-stock{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--blue)}
+.flag-card-title{font-weight:600;font-size:13px}
+.flag-card-meta{font-size:11px;color:var(--text3);background:var(--bg);border-radius:6px;padding:1px 7px}
+.flag-card-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.flag-delete-btn{background:none;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:11px;color:var(--text3);padding:4px 10px;cursor:pointer;transition:all .15s}
+.flag-delete-btn:hover{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.flag-note-area{width:100%;border:none;border-top:1px solid rgba(0,0,0,0.05);background:rgba(0,113,227,0.03);
+  font-family:var(--font);font-size:12px;color:var(--text);padding:12px 14px;outline:none;resize:none;
+  min-height:72px;line-height:1.6;transition:background .15s}
+.flag-note-area:focus{background:rgba(0,113,227,0.06)}
+.flag-note-area::placeholder{color:var(--text3)}
+.pill:hover{border-color:var(--blue);color:var(--blue)}
+.pill.p-interested{border-color:var(--yellow);color:var(--yellow);background:var(--yellow-bg)}
+.pill.p-worked{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+.pill.p-incorrect{border-color:var(--red);color:var(--red);background:var(--red-bg)}
+
+/* ── Empty ── */
+.empty{text-align:center;padding:44px 20px;color:var(--text3);font-size:14px}
+.empty-icon{font-size:28px;margin-bottom:8px}
+
+/* ── Loading ── */
+.loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:44px;color:var(--text3);font-size:13px}
+.spinner{width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Divider ── */
+.divider{border:none;border-top:1px solid var(--border2);margin:18px 0}
+
+/* ── Sidebar ── */
+.sidebar{display:flex;flex-direction:column;gap:16px}
+.sidebar .card{padding:18px 20px}
+
+/* ── Form ── */
+.form-group{margin-bottom:11px}
+.form-label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
+.form-input{width:100%;background:var(--bg);border:1px solid transparent;border-radius:var(--radius-xs);color:var(--text);font-family:var(--font);font-size:14px;padding:9px 11px;outline:none;transition:all .15s}
+.form-input:focus{background:var(--surface);border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+.submit-btn{width:100%;background:var(--blue);border:none;border-radius:var(--radius-xs);color:#fff;font-family:var(--font);font-size:14px;font-weight:600;padding:10px;cursor:pointer;transition:opacity .15s;margin-top:4px}
+.submit-btn:hover{opacity:.85}
+.alert{font-size:13px;padding:9px 11px;border-radius:var(--radius-xs);margin-top:9px;display:none}
+.alert.success{background:var(--green-bg);color:var(--green);display:block}
+.alert.error{background:var(--red-bg);color:var(--red);display:block}
+
+/* ── Avg stats ── */
+.avg-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border2)}
+.avg-row:last-child{border-bottom:none}
+.avg-make{font-size:13px;font-weight:500}
+.avg-val{font-size:13px;font-weight:600;color:var(--yellow)}
+.avg-ct{font-size:11px;color:var(--text3);margin-left:3px}
+
+/* ── Snapshot ── */
+.snap-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border2)}
+.snap-row:last-child{border-bottom:none}
+.snap-date{font-size:13px;font-weight:500}
+.snap-nums{display:flex;gap:8px;font-size:12px}
+.sn-add{color:var(--green);font-weight:600}
+.sn-rem{color:var(--red);font-weight:600}
+.sn-tot{color:var(--text3)}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.stat-card{animation:fadeUp .35s ease both}
+.stat-card:nth-child(1){animation-delay:.04s}
+.stat-card:nth-child(2){animation-delay:.08s}
+.stat-card:nth-child(3){animation-delay:.12s}
+.stat-card:nth-child(4){animation-delay:.16s}
+.stat-card:nth-child(5){animation-delay:.20s}
+.card{animation:fadeUp .35s ease .18s both}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RG Pick-A-Part <em>Lot Tracker</em></div>
+  <div class="header-right">
+    <span class="last-run" id="lastRun"></span>
+    <button class="btn btn-blue" onclick="loadAll()">↻ Refresh</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon si-green">＋</div><div class="stat-val" id="statAdded">—</div><div class="stat-label">Added Today</div></div>
+    <div class="stat-card"><div class="stat-icon si-red">−</div><div class="stat-val" id="statRemoved">—</div><div class="stat-label">Removed Today</div></div>
+    <div class="stat-card"><div class="stat-icon si-blue">◎</div><div class="stat-val" id="statTotal">—</div><div class="stat-label">On Lot Now</div></div>
+    <div class="stat-card"><div class="stat-icon si-yellow">★</div><div class="stat-val" id="statFlagged">—</div><div class="stat-label">Flagged</div></div>
+    <div class="stat-card"><div class="stat-icon si-purple">⚓</div><div class="stat-val" id="statAnchors">—</div><div class="stat-label">Date Anchors</div></div>
+  </div>
+
+  <div class="layout">
+    <!-- Main -->
+    <div class="card">
+
+      <!-- Tabs -->
+      <div class="tabs-wrap">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('today',this)">Today</button>
+          <button class="tab" onclick="switchTab('3day',this)">3 Days</button>
+          <button class="tab" onclick="switchTab('7day',this)">7 Days</button>
+          <button class="tab" onclick="switchTab('14day',this)">14 Days</button>
+          <button class="tab" onclick="switchTab('removed',this)">Removed</button>
+          <button class="tab" onclick="switchTab('search',this)">Search</button>
+          <button class="tab" onclick="switchTab('flagged',this)">Flagged</button>
+          <button class="tab" onclick="switchTab('parts',this)">📋 Parts</button>
+        </div>
+      </div>
+
+      <!-- Filter bar (hidden on today tab) -->
+      <div class="filter-bar" id="filterBar" style="display:none">
+        <input  class="filter-input"  id="fMake"   placeholder="Make"   oninput="applyFilters()" style="width:110px">
+        <input  class="filter-input"  id="fModel"  placeholder="Model"  oninput="applyFilters()" style="width:130px">
+        <input  class="filter-input"  id="fYear"   placeholder="Year"   oninput="applyFilters()" style="width:72px">
+        <input  class="filter-input"  id="fRow"    placeholder="Row #"  oninput="applyFilters()" style="width:72px">
+        <input  class="filter-input"  id="fStock"  placeholder="STK #"  oninput="applyFilters()" style="width:80px">
+        <input  class="filter-input"  id="fDaysMin" placeholder="Days ≥" oninput="applyFilters()" style="width:72px" type="number" min="0">
+        <input  class="filter-input"  id="fDaysMax" placeholder="Days ≤" oninput="applyFilters()" style="width:72px" type="number" min="0">
+        <select class="filter-select" id="fStatus" onchange="applyFilters()">
+          <option value="">All Status</option>
+          <option value="active">On Lot</option>
+          <option value="removed">Removed</option>
+        </select>
+        <select class="filter-select" id="fFlag" onchange="applyFilters()">
+          <option value="">All Flags</option>
+          <option value="interested">Interested</option>
+          <option value="worked">Worked On</option>
+          <option value="incorrect">Incorrect</option>
+          <option value="none">No Flag</option>
+        </select>
+        <button class="filter-clear" onclick="clearFilters()">Clear</button>
+        <span id="filterCount" style="font-size:12px;color:var(--text3);margin-left:4px"></span>
+      </div>
+
+      <!-- Tab panels -->
+      <div class="tab-content active" id="tab-today">
+        <div id="todayContent"><div class="loading"><div class="spinner"></div>Loading</div></div>
+      </div>
+      <div class="tab-content" id="tab-3day">
+        <div id="day3Content"><div class="loading"><div class="spinner"></div>Loading</div></div>
+      </div>
+      <div class="tab-content" id="tab-7day">
+        <div id="day7Content"><div class="loading"><div class="spinner"></div>Loading</div></div>
+      </div>
+      <div class="tab-content" id="tab-14day">
+        <div id="day14Content"><div class="loading"><div class="spinner"></div>Loading</div></div>
+      </div>
+      <div class="tab-content" id="tab-removed">
+        <div id="removedContent"><div class="loading"><div class="spinner"></div>Loading</div></div>
+      </div>
+      <div class="tab-content" id="tab-search">
+        <div id="searchContent"><div class="empty"><div class="empty-icon">🔍</div>Use filters above to search</div></div>
+      </div>
+      <div class="tab-content" id="tab-flagged">
+        <div id="flaggedContent"><div class="loading"><div class="spinner"></div>Loading</div></div>
+      </div>
+      <div class="tab-content" id="tab-parts">
+        <div id="partsContent"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+
+      <div class="card">
+        <div class="card-title">Add Date Anchor</div>
+        <div class="form-group">
+          <label class="form-label">Stock Number</label>
+          <input class="form-input" id="anchorStock" placeholder="63376" type="number">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date Arrived</label>
+          <input class="form-input" id="anchorDate" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Note (optional)</label>
+          <input class="form-input" id="anchorNote" placeholder="e.g. Santa Fe row 62">
+        </div>
+        <button class="submit-btn" onclick="saveAnchor()">Save Anchor</button>
+        <div class="alert" id="anchorAlert"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Avg Days on Lot</div>
+        <div id="avgStats"><div class="loading" style="padding:16px"><div class="spinner"></div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Recent Scrapes</div>
+        <div id="snapshotList"><div class="loading" style="padding:16px"><div class="spinner"></div></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://maxvxqovqlugnifrabvy.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heHZ4cW92cWx1Z25pZnJhYnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzU5NDgsImV4cCI6MjA4OTAxMTk0OH0.XILjOkLmwd9qF_DlKZLmsUmRX-UPMMW9DwCTzF6k9_I";
+const DAYS_OFFSET = -7; // add days to estimated lot time (positive = older than estimated)
+
+// ── Local storage ─────────────────────────────────────────────────────────────
+// ── Flags (Supabase-backed) ───────────────────────────────────────────────────
+let _flagCache = {}; // stock -> {flag, note}
+
+async function loadFlags(){
+  try{
+    const rows = await query("vehicle_flags","?select=stock,flag,note");
+    _flagCache = {};
+    for(const r of rows) _flagCache[r.stock] = {flag:r.flag, note:r.note||""};
+    updateFlaggedCount();
+  }catch(e){}
+}
+
+function getFlags(){ const out={}; for(const [k,v] of Object.entries(_flagCache)) if(v&&v.flag) out[k]=v.flag; return out; }
+function getFlag(stock){ return (_flagCache[stock]||{}).flag||null; }
+function getNote(stock){ return (_flagCache[stock]||{}).note||""; }
+
+const _noteTimers={};
+function debounceNote(stock,note){
+  if(_flagCache[stock]) _flagCache[stock].note=note; // update cache immediately so re-renders use latest value
+  clearTimeout(_noteTimers[stock]);
+  _noteTimers[stock]=setTimeout(()=>saveNote(stock,note),500);
+}
+
+async function setFlag(stock, val, note){
+  const existingNote = note !== undefined ? note : getNote(stock);
+  if(val===null){
+    delete _flagCache[stock];
+    await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?stock=eq.${stock}`,{
+      method:"DELETE", headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
+    });
+  } else {
+    _flagCache[stock] = {flag:val, note:existingNote};
+    await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags`,{
+      method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,
+                "Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
+      body: JSON.stringify({stock:Number(stock), flag:val, note:existingNote, updated_at:new Date().toISOString()})
+    });
+  }
+  updateFlaggedCount();
+}
+
+async function saveNote(stock, note){
+  const cur = getFlag(stock);
+  if(!cur) return;
+  _flagCache[stock].note = note;
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?stock=eq.${stock}`,{
+    method:"PATCH",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,
+              "Content-Type":"application/json"},
+    body: JSON.stringify({note, updated_at:new Date().toISOString()})
+  });
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function query(table, params=""){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`,{
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
+  });
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function upsertRow(table, body){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`,{
+    method:"POST",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error(await r.text());
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function todayStr(){ return new Date().toISOString().split("T")[0]; }
+function daysAgo(n){ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().split("T")[0]; }
+function fmtDate(s){ 
+  if(!s) return "—"; 
+  const d=new Date(s+"T12:00:00"); 
+  const thisYear = new Date().getFullYear();
+  if(d.getFullYear() < thisYear){
+    return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"2-digit"});
+  }
+  return d.toLocaleDateString("en-US",{month:"short",day:"numeric"}); 
+}
+
+// Sort state
+let sortCol = "row";
+let sortDir = "asc";
+
+function sortVehicles(arr, col=sortCol, dir=sortDir){
+  const today = new Date();
+  return [...arr].sort((a,b)=>{
+    let av, bv;
+    if(col === "_days"){
+      const aRef = a.confirmed_add_date || a.estimated_add_date;
+      const bRef = b.confirmed_add_date || b.estimated_add_date;
+      av = aRef ? Math.round((today - new Date(aRef+"T12:00:00")) / 86400000) + DAYS_OFFSET : -1;
+      bv = bRef ? Math.round((today - new Date(bRef+"T12:00:00")) / 86400000) + DAYS_OFFSET : -1;
+    } else {
+      av = a[col]; bv = b[col];
+    }
+    if(col==="row"){ av=av??99999; bv=bv??99999; }
+    if(col==="stock"||col==="year"||col==="row"||col==="_days"){ av=Number(av)||0; bv=Number(bv)||0; }
+    else { av=(av||"").toString().toLowerCase(); bv=(bv||"").toString().toLowerCase(); }
+    if(av<bv) return dir==="asc"?-1:1;
+    if(av>bv) return dir==="asc"?1:-1;
+    const ra=a.row??99999, rb=b.row??99999;
+    return ra-rb;
+  });
+}
+
+// ── Flag cycling ──────────────────────────────────────────────────────────────
+// Cycle: none → interested → worked → incorrect → none
+function cycleFlag(stock){
+  const cur = getFlag(stock);
+  let next = null;
+  if(!cur)                    next="interested";
+  else if(cur==="interested") next="worked";
+  else if(cur==="worked")     next="incorrect";
+  setFlag(stock, next);
+
+  // Update all pill action cells in vehicle list rows
+  document.querySelectorAll(`.vehicle-row[data-stock="${stock}"] .actions`).forEach(el=>{ el.innerHTML=pillHtml(stock); });
+  // Update row styling
+  const row = document.querySelector(`.vehicle-row[data-stock="${stock}"]`);
+  if(row){
+    row.classList.remove("worked","incorrect");
+    if(next==="worked")    row.classList.add("worked");
+    if(next==="incorrect") row.classList.add("incorrect");
+  }
+
+  // Update flag card in-place — avoids wiping in-progress textarea notes
+  if(document.getElementById("tab-flagged").classList.contains("active")){
+    const fcard = document.getElementById(`fcard-${stock}`);
+    if(fcard){
+      // Save textarea draft before any DOM changes
+      const ta = fcard.querySelector('.flag-note-area');
+      const draft = ta ? ta.value : null;
+      // Replace pill in card header (keep delete button intact)
+      const actionsDiv = fcard.querySelector('.flag-card-actions');
+      if(actionsDiv){
+        const delBtn = actionsDiv.querySelector('.flag-delete-btn');
+        const delHtml = delBtn ? delBtn.outerHTML : `<button class="flag-delete-btn" onclick="deleteFlagCompletely(${stock})">🗑 Remove</button>`;
+        actionsDiv.innerHTML = pillHtml(stock) + delHtml;
+      }
+      if(next===null){
+        fcard.remove();
+      } else if(next==='incorrect'){
+        fcard.classList.add('flag-incorrect');
+        fcard.querySelector('.flag-note-area')?.remove();
+      } else {
+        fcard.classList.remove('flag-incorrect');
+        const existingTa = fcard.querySelector('.flag-note-area');
+        if(!existingTa){
+          fcard.insertAdjacentHTML('beforeend',`<textarea class="flag-note-area" data-stock="${stock}" placeholder="Add parts or notes for checklist…" oninput="debounceNote(${stock},this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'" onfocus="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${getNote(stock)}</textarea>`);
+        } else if(draft!==null){
+          existingTa.value=draft;
+        }
+      }
+    } else if(next){
+      loadFlagged(); // card doesn't exist yet (new flag added while on flagged tab)
+    }
+  }
+}
+
+function pillHtml(stock){
+  const f = getFlag(stock);
+  if(f==="interested") return `<span class="pill-wrap"><button class="pill p-interested" data-stock="${stock}" onclick="cycleFlag(${stock})">⭐ Interested</button><input class="note-input" placeholder="Add note…" value="${getNote(stock).replace(/"/g,'&quot;')}" oninput="debounceNote(${stock},this.value)" onclick="event.stopPropagation()"></span>`;
+  if(f==="worked")     return `<span class="pill-wrap"><button class="pill p-worked"     data-stock="${stock}" onclick="cycleFlag(${stock})">✓ Worked On</button><input class="note-input" placeholder="Add note…" value="${getNote(stock).replace(/"/g,'&quot;')}" oninput="debounceNote(${stock},this.value)" onclick="event.stopPropagation()"></span>`;
+  if(f==="incorrect")  return `<span class="pill-wrap"><button class="pill p-incorrect"  data-stock="${stock}" onclick="cycleFlag(${stock})">✗ Incorrect</button><input class="note-input" placeholder="Add note…" value="${getNote(stock).replace(/"/g,'&quot;')}" oninput="debounceNote(${stock},this.value)" onclick="event.stopPropagation()"></span>`;
+  return `<button class="pill" data-stock="${stock}" onclick="cycleFlag(${stock})">Flag</button>`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function colHeaders(mode="added"){
+  const dateLabel = mode==="removed" ? "Removed" : "Est. Added";
+  function ch(col,label,cls=""){
+    const active = sortCol===col;
+    const dirCls = active ? (sortDir==="asc"?"sort-asc":"sort-desc") : "";
+    return `<span class="col-h ${cls} ${dirCls}" onclick="setSort('${col}')">${label}</span>`;
+  }
+  return `<div class="col-headers">
+    ${ch("row","Row")} ${ch("stock","Stock")} ${ch("year","Year")}
+    ${ch("make","Make")} ${ch("model","Model")}
+    ${ch(mode==="removed"?"removed_date":"estimated_add_date", dateLabel,"right")}
+    ${ch("_days","Days","right")}
+    <span class="col-h right">Actions</span>
+  </div>`;
+}
+
+function vehicleList(rows, mode="added", showIncorrect=false){
+  if(!rows.length) return `<div class="empty"><div class="empty-icon">🚗</div>No vehicles</div>`;
+  const flags = getFlags();
+
+  // Filter out incorrect unless showIncorrect
+  const visible = showIncorrect ? rows : rows.filter(v => flags[v.stock] !== "incorrect");
+
+  if(!visible.length) return `<div class="empty"><div class="empty-icon">🚗</div>No vehicles</div>`;
+
+  let html = colHeaders(mode) + `<div class="vehicle-list">`;
+  for(const v of visible){
+    const f = flags[v.stock]||"";
+    const stockCls = mode==="new"?"new":mode==="removed"?"gone":"";
+    const rowCls   = f==="worked"?"worked":f==="incorrect"?"incorrect":"";
+
+    // Date display: prefer confirmed_add_date, fallback to estimated_add_date
+    let dateVal, dateIsEstimate = false;
+    if(mode==="removed"){
+      dateVal = fmtDate(v.removed_date);
+    } else {
+      if(v.confirmed_add_date){
+        dateVal = fmtDate(v.confirmed_add_date);
+      } else if(v.estimated_add_date){
+        dateVal = "~" + fmtDate(v.estimated_add_date);
+        dateIsEstimate = true;
+      } else {
+        dateVal = "—";
+      }
+    }
+
+    // Days on lot
+    let extraVal = "";
+    const today = new Date();
+    if(mode==="removed" && v.first_seen_date && v.removed_date){
+      const refDate = v.confirmed_add_date || v.estimated_add_date || v.first_seen_date;
+      const days = Math.round((new Date(v.removed_date) - new Date(refDate+"T12:00:00")) / 86400000);
+      extraVal = `<span class="v-days">${days}d</span>`;
+    } else if(mode!=="removed"){
+      const refDate = v.confirmed_add_date || v.estimated_add_date;
+      if(refDate){
+        const days = Math.round((today - new Date(refDate+"T12:00:00")) / 86400000) + DAYS_OFFSET;
+        const daysColor = days > 90 ? "var(--text3)" : days > 30 ? "var(--yellow)" : "var(--green)";
+        extraVal = `<span class="v-days" style="color:${daysColor}">${days}d</span>`;
+      } else {
+        extraVal = `<span></span>`;
+      }
+    } else { extraVal = `<span></span>`; }
+
+    html+=`<div class="vehicle-row ${rowCls}" data-stock="${v.stock}">
+      <span class="v-row-num">${v.row??'—'}</span>
+      <span class="v-stock ${stockCls}">STK${v.stock}</span>
+      <span class="v-year">${v.year||'—'}</span>
+      <span class="v-make">${v.make||'—'}</span>
+      <span class="v-model">${v.model||'—'}</span>
+      <span class="v-date ${dateIsEstimate?'est':''}" title="${dateIsEstimate?'Estimated from stock number interpolation':'Confirmed date'}">${dateVal}</span>
+      ${extraVal}
+      <span class="actions">${pillHtml(v.stock)}</span>
+    </div>`;
+  }
+  html += "</div>";
+  return html;
+}
+
+// ── Sort ──────────────────────────────────────────────────────────────────────
+function setSort(col){
+  if(sortCol===col) sortDir = sortDir==="asc"?"desc":"asc";
+  else { sortCol=col; sortDir="asc"; }
+  refreshCurrentTab();
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+let cachedData = {};
+
+function getFilters(){
+  return {
+    make:   document.getElementById("fMake")?.value.trim().toUpperCase()||"",
+    model:  document.getElementById("fModel")?.value.trim().toUpperCase()||"",
+    year:   document.getElementById("fYear")?.value.trim()||"",
+    row:    document.getElementById("fRow")?.value.trim()||"",
+    stock:  document.getElementById("fStock")?.value.trim()||"",
+    daysMin: document.getElementById("fDaysMin")?.value.trim()||"",
+    daysMax: document.getElementById("fDaysMax")?.value.trim()||"",
+    status: document.getElementById("fStatus")?.value||"",
+    flag:   document.getElementById("fFlag")?.value||"",
+  };
+}
+
+function matchesFilters(v, f){
+  const flags = getFlags();
+  if(f.make   && !(v.make||"").includes(f.make))    return false;
+  if(f.model  && !(v.model||"").includes(f.model))  return false;
+  if(f.year   && String(v.year)!==f.year)            return false;
+  if(f.row    && String(v.row)!==f.row)              return false;
+  if(f.stock  && !String(v.stock).includes(f.stock)) return false;
+  if(f.daysMin || f.daysMax){
+    const ref = v.confirmed_add_date || v.estimated_add_date;
+    const days = ref ? Math.round((new Date() - new Date(ref+"T12:00:00"))/86400000) + DAYS_OFFSET : null;
+    if(days === null) return false;
+    if(f.daysMin && days < Number(f.daysMin)) return false;
+    if(f.daysMax && days > Number(f.daysMax)) return false;
+  }
+  if(f.status==="active"   && !v.is_active)          return false;
+  if(f.status==="removed"  &&  v.is_active)          return false;
+  const vf = flags[v.stock]||"none";
+  if(f.flag && f.flag!=="none" && vf!==f.flag)       return false;
+  if(f.flag==="none" && vf!=="none")                 return false;
+  return true;
+}
+
+function applyFilters(){
+  const tab = currentTab;
+  if(tab==="search"){
+    const f = getFilters();
+    const hasFilter = Object.values(f).some(v=>v);
+    if(!hasFilter){ document.getElementById("searchContent").innerHTML=`<div class="empty"><div class="empty-icon">🔍</div>Use filters above to search</div>`; return; }
+    // Search all vehicles
+    const all = cachedData["all"] || [];
+    const filtered = sortVehicles(all.filter(v=>matchesFilters(v,f)));
+    const mode = f.status==="removed"?"removed":"added";
+    document.getElementById("searchContent").innerHTML =
+      `<div class="section-label">${filtered.length} results</div>` + vehicleList(filtered, mode, true);
+    document.getElementById("filterCount").textContent = `${filtered.length} shown`;
+    return;
+  }
+  // For period tabs, filter the cached data
+  const key = tab;
+  const data = cachedData[key];
+  if(!data) return;
+  const f = getFilters();
+  const filtered = sortVehicles(data.filter(v=>matchesFilters(v,f)));
+  document.getElementById("filterCount").textContent = `${filtered.length} of ${data.length}`;
+  renderPeriod(filtered, data.mode || "added", tab+"Content");
+}
+
+function clearFilters(){
+  ["fMake","fModel","fYear","fRow","fStock","fDaysMin","fDaysMax"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
+  ["fStatus","fFlag"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
+  document.getElementById("filterCount").textContent="";
+  refreshCurrentTab();
+}
+
+function renderPeriod(rows, mode, elId){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.innerHTML = vehicleList(sortVehicles(rows), mode, false);
+}
+
+// ── Loaders ───────────────────────────────────────────────────────────────────
+async function loadToday(){
+  const el = document.getElementById("todayContent");
+  try{
+    const snaps = await query("daily_snapshots","?order=snapshot_date.desc&limit=1");
+    if(!snaps.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div>No scrape run yet</div>`; return; }
+    const s = snaps[0];
+    document.getElementById("statAdded").textContent   = s.added_count??0;
+    document.getElementById("statRemoved").textContent = s.removed_count??0;
+    document.getElementById("statTotal").textContent   = s.total_active??0;
+    document.getElementById("lastRun").textContent     = `Last updated ${fmtDate(s.snapshot_date)}`;
+
+    let html="";
+
+    if(s.added_stocks?.length){
+      const added = await query("vehicles",`?stock=in.(${s.added_stocks.join(",")})&select=*`);
+      html+=`<div class="section-label green">▲ Added — ${added.length} vehicles</div>`;
+      html+=vehicleList(sortVehicles(added),"new");
+    } else {
+      html+=`<div class="section-label green">▲ Added</div><div class="empty" style="padding:16px 0">None today</div>`;
+    }
+
+    html+=`<hr class="divider">`;
+
+    if(s.removed_stocks?.length){
+      const removed = await query("vehicles",`?stock=in.(${s.removed_stocks.join(",")})&select=*`);
+      html+=`<div class="section-label red">▼ Removed — ${removed.length} vehicles</div>`;
+      html+=vehicleList(sortVehicles(removed),"removed");
+    } else {
+      html+=`<div class="section-label red">▼ Removed</div><div class="empty" style="padding:16px 0">None today</div>`;
+    }
+
+    el.innerHTML=html;
+  }catch(e){ el.innerHTML=`<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function loadPeriodTab(days, elId, key){
+  const el = document.getElementById(elId);
+  try{
+    let rows = [], offset = 0, batch;
+    do {
+      batch = await query("vehicles",`?first_seen_date=gte.${daysAgo(days)}&is_active=eq.true&select=*&limit=1000&offset=${offset}`);
+      rows = rows.concat(batch);
+      offset += 1000;
+    } while(batch.length === 1000);
+    cachedData[key] = rows;
+    cachedData[key].mode = "added";
+    const f = getFilters();
+    const filtered = sortVehicles(rows.filter(v=>matchesFilters(v,f)));
+    document.getElementById("filterCount").textContent = filtered.length<rows.length ? `${filtered.length} of ${rows.length}` : "";
+    el.innerHTML = `<div class="section-label">${filtered.length} vehicles added — last ${days} days</div>` + vehicleList(filtered,"added");
+  }catch(e){ el.innerHTML=`<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function loadRemoved(){
+  const el = document.getElementById("removedContent");
+  try{
+    const rows = await query("vehicles",`?is_active=eq.false&removed_date=gte.${daysAgo(14)}&select=*&limit=300`);
+    cachedData["removed"] = rows;
+    cachedData["removed"].mode = "removed";
+    const f = getFilters();
+    const filtered = sortVehicles(rows.filter(v=>matchesFilters(v,f)));
+    el.innerHTML = `<div class="section-label">${filtered.length} vehicles removed — last 14 days</div>` + vehicleList(filtered,"removed");
+  }catch(e){ el.innerHTML=`<div class="empty">Error: ${e.message}</div>`; }
+}
+
+// ── Parts List ────────────────────────────────────────────────────────────────
+async function loadParts(){
+  const el = document.getElementById("partsContent");
+  try{
+    const rows = await query("parts_list","?order=vehicle.asc,created_at.asc");
+    if(!rows.length){
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>No parts added yet.</div>${partsForm()}`;
+      return;
+    }
+    const groups = {};
+    for(const r of rows){ if(!groups[r.vehicle]) groups[r.vehicle]=[]; groups[r.vehicle].push(r); }
+    const found=rows.filter(r=>r.status==="found").length;
+    const notThere=rows.filter(r=>r.status==="not_there").length;
+    const pending=rows.length-found-notThere;
+    let html=`<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+      <span style="font-size:13px;color:var(--text2)">⏳ <b>${pending}</b> pending</span>
+      <span style="font-size:13px;color:var(--green)">✓ <b>${found}</b> found</span>
+      <span style="font-size:13px;color:var(--red)">✗ <b>${notThere}</b> not there</span>
+      <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);margin-left:auto" onclick="resetAllParts()">Reset All</button>
+    </div>`;
+    for(const [vehicle,parts] of Object.entries(groups)){
+      const stk = parts[0].stock_num ? ` · STK${parts[0].stock_num}` : "";
+      html+=`<div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden">
+        <div style="padding:10px 16px;background:rgba(0,0,0,0.03);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2)">
+          <span style="font-weight:600;font-size:14px">🚗 ${vehicle}${stk}</span>
+          <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red)" onclick="deleteVehicleParts('${vehicle.replace(/'/g,"\\'")}')">Remove</button>
+        </div>`;
+      for(const p of parts){
+        const sc = p.status==="found"?"var(--green-bg);color:var(--green)":p.status==="not_there"?"var(--red-bg);color:var(--red)":"var(--bg);color:var(--text2)";
+        const icon = p.status==="found"?"✓":p.status==="not_there"?"✗":"○";
+        html+=`<div style="padding:10px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border2)">
+          <span style="font-size:18px;width:24px;text-align:center">${icon}</span>
+          <span style="flex:1;font-size:13px">${p.part}</span>
+          <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:${sc}">${p.status}</span>
+          <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 6px" onclick="deletePartItem('${p.id}')">×</button>
+        </div>`;
+      }
+      html+=`</div>`;
+    }
+    el.innerHTML = html + partsForm();
+  }catch(e){ el.innerHTML=`<div class="empty">Error loading parts.</div>`+partsForm(); }
+}
+
+function partsForm(){
+  return `<div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:16px;margin-top:8px">
+    <div style="font-weight:600;margin-bottom:12px;font-size:14px">➕ Add Parts</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <input id="pVehicle" class="filter-input" placeholder="Vehicle  e.g. 2005 Honda Accord" style="width:100%">
+      <input id="pStock" class="filter-input" placeholder="STK# (optional)" style="width:100%">
+    </div>
+    <textarea id="pParts" class="filter-input" rows="4" placeholder="Parts — one per line&#10;Driver door&#10;Alternator" style="width:100%;resize:none;line-height:1.6;margin-bottom:8px"></textarea>
+    <button class="btn btn-blue" onclick="addPartsFromDash()">Add to Checklist</button>
+  </div>`;
+}
+
+async function addPartsFromDash(){
+  const vehicle = document.getElementById("pVehicle").value.trim();
+  const stockNum = document.getElementById("pStock").value.trim();
+  const partsRaw = document.getElementById("pParts").value;
+  if(!vehicle){ alert("Enter a vehicle name"); return; }
+  const parts = partsRaw.split("\n").map(p=>p.trim()).filter(Boolean);
+  if(!parts.length){ alert("Enter at least one part"); return; }
+  const rows = parts.map(part=>({vehicle, part, stock_num:stockNum||null, status:"pending"}));
+  await upsertRow("parts_list", rows);
+  loadParts();
+}
+
+async function deletePartItem(id){
+  await fetch(`${SUPABASE_URL}/rest/v1/parts_list?id=eq.${id}`,{
+    method:"DELETE", headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
+  });
+  loadParts();
+}
+
+async function deleteVehicleParts(vehicle){
+  if(!confirm(`Remove all parts for "${vehicle}"?`)) return;
+  await fetch(`${SUPABASE_URL}/rest/v1/parts_list?vehicle=eq.${encodeURIComponent(vehicle)}`,{
+    method:"DELETE", headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
+  });
+  loadParts();
+}
+
+async function resetAllParts(){
+  if(!confirm("Reset all statuses to pending?")) return;
+  await fetch(`${SUPABASE_URL}/rest/v1/parts_list?status=neq.pending`,{
+    method:"PATCH",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+    body: JSON.stringify({status:"pending"})
+  });
+  loadParts();
+}
+
+async function loadFlagged(){
+  const el = document.getElementById("flaggedContent");
+  // Preserve any in-progress note text before re-rendering
+  const draft={};
+  el.querySelectorAll('.flag-note-area[data-stock]').forEach(ta=>{ draft[ta.dataset.stock]=ta.value; });
+  const flags = getFlags();
+  const activeStocks = Object.keys(flags).map(Number).filter(s=>flags[s.toString()]!=="incorrect" && flags[s]!=="incorrect");
+  const incorrectStocks = Object.keys(flags).map(Number).filter(s=>flags[s.toString()]==="incorrect" || flags[s]==="incorrect");
+
+  if(!activeStocks.length && !incorrectStocks.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">⭐</div>No flagged vehicles yet.</div>`;
+    return;
+  }
+  try{
+    const allStocks = [...new Set([...activeStocks,...incorrectStocks])];
+    const rows = await query("vehicles",`?stock=in.(${allStocks.join(",")})&select=*`);
+    const vMap = {};
+    for(const r of rows) vMap[r.stock] = r;
+
+    function flagCard(stock){
+      const v = vMap[stock];
+      if(!v) return "";
+      const flagVal = flags[stock] || flags[String(stock)];
+      const note = getNote(stock);
+      const ref = v.confirmed_add_date || v.estimated_add_date;
+      const days = ref ? Math.round((new Date()-new Date(ref+"T12:00:00"))/86400000) + DAYS_OFFSET : null;
+      const isIncorrect = flagVal === "incorrect";
+      return `<div class="flag-card ${isIncorrect?'flag-incorrect':''}" id="fcard-${stock}">
+        <div class="flag-card-header">
+          <div class="flag-card-info">
+            <span class="flag-card-stock">STK${stock}</span>
+            <span class="flag-card-title">${v.year||""} ${v.make||""} ${v.model||""}</span>
+            ${v.row?`<span class="flag-card-meta">Row ${v.row}</span>`:""}
+            ${days!==null?`<span class="flag-card-meta">${days}d on lot</span>`:""}
+          </div>
+          <div class="flag-card-actions">
+            ${pillHtml(stock)}
+            <button class="flag-delete-btn" onclick="deleteFlagCompletely(${stock})">🗑 Remove</button>
+          </div>
+        </div>
+        ${!isIncorrect?`<textarea class="flag-note-area" data-stock="${stock}" placeholder="Add parts or notes for checklist…"
+          oninput="debounceNote(${stock},this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+          onfocus="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+        >${note}</textarea>`:""}
+      </div>`;
+    }
+
+    let html="";
+    const interested = activeStocks.filter(s=>(flags[s]||flags[String(s)])==="interested");
+    const worked     = activeStocks.filter(s=>(flags[s]||flags[String(s)])==="worked");
+
+    if(interested.length){
+      html+=`<div class="section-label orange">⭐ Interested — ${interested.length}</div>`;
+      html+=interested.map(flagCard).join("");
+    }
+    if(worked.length){
+      html+=`<div class="section-label" style="color:var(--green)">✓ Worked On — ${worked.length}</div>`;
+      html+=worked.map(flagCard).join("");
+    }
+    if(incorrectStocks.length){
+      html+=`<div class="section-label red">✗ Incorrect — ${incorrectStocks.length}</div>`;
+      html+=incorrectStocks.map(flagCard).join("");
+    }
+    el.innerHTML=html||`<div class="empty">None</div>`;
+    // Restore in-progress note text
+    el.querySelectorAll('.flag-note-area[data-stock]').forEach(ta=>{ if(draft[ta.dataset.stock]!==undefined) ta.value=draft[ta.dataset.stock]; });
+  }catch(e){ el.innerHTML=`<div class="empty">Error: ${e.message}</div>`; }
+}
+
+async function deleteFlagCompletely(stock){
+  if(!confirm("Remove this vehicle from flagged list?")) return;
+  await setFlag(stock, null);
+  loadFlagged();
+}
+
+async function preloadAll(){
+  try{
+    let all = [], offset = 0, batch;
+    do {
+      batch = await query("vehicles",`?select=*&limit=1000&offset=${offset}&order=row.asc.nullslast,stock.desc`);
+      all = all.concat(batch);
+      offset += 1000;
+    } while(batch.length === 1000);
+    cachedData["all"] = all;
+  }catch(e){}
+}
+
+async function loadAvgStats(){
+  const el=document.getElementById("avgStats");
+  try{
+    const rows=await query("vehicles","?is_active=eq.false&removed_date=not.is.null&first_seen_date=not.is.null&select=make,first_seen_date,removed_date&limit=2000");
+    const byMake={};
+    for(const v of rows){
+      if(!v.make) continue;
+      const days=Math.round((new Date(v.removed_date)-new Date(v.first_seen_date))/86400000);
+      if(days<0||days>365) continue;
+      if(!byMake[v.make]) byMake[v.make]=[];
+      byMake[v.make].push(days);
+    }
+    const sorted=Object.entries(byMake)
+      .map(([make,days])=>({make,avg:Math.round(days.reduce((a,b)=>a+b,0)/days.length),count:days.length}))
+      .filter(x=>x.count>=2).sort((a,b)=>a.avg-b.avg).slice(0,10);
+    if(!sorted.length){ el.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:6px 0">Not enough data yet</div>`; return; }
+    el.innerHTML=sorted.map(x=>`<div class="avg-row"><span class="avg-make">${x.make}</span><span><span class="avg-val">${x.avg}d</span><span class="avg-ct">(${x.count})</span></span></div>`).join("");
+  }catch(e){ el.innerHTML=`<div style="color:var(--text3);font-size:13px">—</div>`; }
+}
+
+async function loadSnapshots(){
+  const el=document.getElementById("snapshotList");
+  try{
+    const rows=await query("daily_snapshots","?order=snapshot_date.desc&limit=7");
+    if(!rows.length){ el.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:6px 0">No runs yet</div>`; return; }
+    el.innerHTML=rows.map(r=>`<div class="snap-row"><span class="snap-date">${fmtDate(r.snapshot_date)}</span><span class="snap-nums"><span class="sn-add">+${r.added_count}</span><span class="sn-rem">−${r.removed_count}</span><span class="sn-tot">${r.total_active}</span></span></div>`).join("");
+  }catch(e){ el.innerHTML=`<div style="color:var(--text3);font-size:13px">—</div>`; }
+}
+
+async function loadAnchorCount(){
+  try{
+    const rows=await query("stock_anchors","?select=stock");
+    document.getElementById("statAnchors").textContent=rows.length;
+  }catch{}
+}
+
+function updateFlaggedCount(){
+  const f=getFlags();
+  const n=Object.values(f).filter(v=>v==="interested"||v==="worked").length;
+  document.getElementById("statFlagged").textContent=n;
+}
+
+async function saveAnchor(){
+  const stock=parseInt(document.getElementById("anchorStock").value);
+  const d=document.getElementById("anchorDate").value;
+  const note=document.getElementById("anchorNote").value.trim();
+  const alertEl=document.getElementById("anchorAlert");
+  alertEl.className="alert"; alertEl.style.display="none";
+  if(!stock||!d){ alertEl.textContent="Stock number and date required."; alertEl.className="alert error"; return; }
+  try{
+    await upsertRow("stock_anchors",{stock,confirmed_date:d,note});
+    alertEl.textContent=`✓ Anchor saved for STK${stock}`;
+    alertEl.className="alert success";
+    document.getElementById("anchorStock").value="";
+    document.getElementById("anchorNote").value="";
+    loadAnchorCount();
+  }catch(e){ alertEl.textContent=`Error: ${e.message}`; alertEl.className="alert error"; }
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+let currentTab = "today";
+const FILTER_TABS = ["3day","7day","14day","removed","search","flagged"];
+
+function switchTab(name, btn){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(`tab-${name}`).classList.add("active");
+  currentTab=name;
+
+  const showFilter = FILTER_TABS.includes(name);
+  document.getElementById("filterBar").style.display = showFilter ? "flex" : "none";
+
+  if(name==="flagged") loadFlagged();
+}
+
+function refreshCurrentTab(){
+  const tab=currentTab;
+  const f = getFilters();
+  if(tab==="search"){ applyFilters(); return; }
+  if(tab==="flagged"){ loadFlagged(); return; }
+  const keyMap = {"3day":"3day","7day":"7day","14day":"14day","removed":"removed"};
+  const elMap  = {"3day":"day3Content","7day":"day7Content","14day":"day14Content","removed":"removedContent"};
+  const key = keyMap[tab];
+  if(!key) return;
+  const data = cachedData[key];
+  if(!data){ if(tab==="removed") loadRemoved(); else loadPeriodTab(tab==="3day"?3:tab==="7day"?7:14, elMap[tab], key); return; }
+  const mode = tab==="removed"?"removed":"added";
+  const filtered = sortVehicles(data.filter(v=>matchesFilters(v,f)));
+  document.getElementById("filterCount").textContent = filtered.length<data.length ? `${filtered.length} of ${data.length}` : "";
+  document.getElementById(elMap[tab]).innerHTML = `<div class="section-label">${filtered.length} vehicles</div>` + vehicleList(filtered, mode);
+}
+
+async function loadAll(){
+  document.getElementById("anchorDate").value=todayStr();
+  await Promise.all([
+    loadFlags(),
+    loadToday(),
+    loadPeriodTab(3,"day3Content","3day"),
+    loadPeriodTab(7,"day7Content","7day"),
+    loadPeriodTab(14,"day14Content","14day"),
+    loadRemoved(),
+    loadAvgStats(),
+    loadSnapshots(),
+    loadAnchorCount(),
+    preloadAll(),
+  ]);
+  updateFlaggedCount();
+}
+
+loadAll();
+</script>
+</body>
+</html>
