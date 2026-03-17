@@ -58,6 +58,7 @@ header{
   cursor:pointer;color:var(--text2);white-space:nowrap;
 }
 .done-btn.on{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.cam-btn{flex-shrink:0;border:1.5px solid var(--border);background:var(--bg);border-radius:7px;font-size:15px;padding:3px 7px;cursor:pointer;line-height:1}
 
 /* vehicle note */
 .vnote{padding:4px 10px;font-size:11px;color:var(--text2);background:var(--blue-bg);border-bottom:1px solid rgba(0,0,0,.04);line-height:1.4}
@@ -131,10 +132,12 @@ async function get(path){
 async function patchDB(table,filter,body){
   const r = await fetch(`${SURL}/rest/v1/${table}?${filter}`,{
     method:"PATCH",
-    headers:{...H,"Content-Type":"application/json","Prefer":"return=minimal"},
+    headers:{...H,"Content-Type":"application/json","Prefer":"return=representation"},
     body:JSON.stringify(body)
   });
   if(!r.ok){ const t=await r.text(); console.error("patchDB failed:",t); throw new Error(t); }
+  const rows=await r.json();
+  if(!Array.isArray(rows)||!rows.length) throw new Error("Not saved — record not found. Try refreshing.");
 }
 
 // status config — 3 buttons for the worker
@@ -197,6 +200,8 @@ function vBlock(item){
         <div class="vn">${v.year||"?"} ${v.make||""} ${v.model||""}</div>
       </div>
       <button class="done-btn${done?" on":""}" onclick="tapDone(${item.stock})">${done?"✓ Done":"Done"}</button>
+      <button class="cam-btn" onclick="triggerPhoto(${item.stock})" title="Add photo">📷</button>
+      <input type="file" id="fi-${item.stock}" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(${item.stock},this)">
     </div>
     ${item.note?`<div class="vnote">${esc(item.note)}</div>`:""}
     ${partsHtml}
@@ -252,6 +257,31 @@ async function tapPart(id, statusKey){
   }
   try{ await patchDB("parts_list",`id=eq.${id}`,{status:ns}); }
   catch(e){ alert("Save error: "+e.message); }
+}
+
+function triggerPhoto(stock){ document.getElementById('fi-'+stock)?.click(); }
+
+async function handlePhoto(stock, input){
+  const file=input.files[0]; if(!file) return;
+  const btn=document.querySelector(`#vb-${stock} .cam-btn`);
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  try{
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+    const path=`${stock}/${Date.now()}.${ext}`;
+    const up=await fetch(`${SURL}/storage/v1/object/photos/${path}`,{
+      method:'POST',headers:{...H,'Content-Type':file.type||'image/jpeg'},body:file});
+    if(!up.ok) throw new Error(await up.text());
+    const url=`${SURL}/storage/v1/object/public/photos/${path}`;
+    const ins=await fetch(`${SURL}/rest/v1/vehicle_photos`,{
+      method:'POST',headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({stock_num:String(stock),photo_url:url})});
+    if(!ins.ok) throw new Error(await ins.text());
+    if(btn){btn.textContent='✓📷';btn.disabled=false;}
+  }catch(e){
+    alert('Upload failed: '+e.message);
+    if(btn){btn.textContent='📷';btn.disabled=false;}
+  }
+  input.value='';
 }
 
 load();
