@@ -232,7 +232,8 @@ async function tapDone(stock){
     else  { vh.classList.remove("done"); btn.classList.remove("on"); btn.textContent="Done"; }
   }
   updateCounts();
-  await patchDB("vehicle_flags",`stock=eq.${stock}`,{checklist_status:ns});
+  try{ await patchDB("vehicle_flags",`stock=eq.${stock}`,{checklist_status:ns}); }
+  catch(e){ alert("Save error: "+e.message); }
 }
 
 async function tapPart(id, statusKey){
@@ -249,7 +250,8 @@ async function tapPart(id, statusKey){
     const btnsEl=row.querySelector(".pbtns");
     if(btnsEl) btnsEl.innerHTML=ST.map(s=>`<button type="button" class="pb${ns===s.k?" "+s.cls:""}" onclick="tapPart(${id},'${s.k}')">${s.icon} ${s.label}</button>`).join("");
   }
-  await patchDB("parts_list",`id=eq.${id}`,{status:ns});
+  try{ await patchDB("parts_list",`id=eq.${id}`,{status:ns}); }
+  catch(e){ alert("Save error: "+e.message); }
 }
 
 load();
