@@ -227,6 +227,14 @@ header{
 .sn-rem{color:var(--red);font-weight:600}
 .sn-tot{color:var(--text3)}
 
+/* ── Parts tab ── */
+.parts-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.parts-stats{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pstat{font-size:12px;font-weight:500;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+.pstat-p{background:var(--orange-bg);color:var(--orange);border-color:transparent}
+.pstat-d{background:var(--green-bg);color:var(--green);border-color:transparent}
+.parts-actions{display:flex;gap:6px;flex-wrap:wrap}
+
 /* ── Animations ── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .stat-card{animation:fadeUp .35s ease both}
@@ -810,62 +818,139 @@ async function loadRemoved(){
 }
 
 // ── Parts List ────────────────────────────────────────────────────────────────
+const PART_ST = {
+  complete:  {icon:"✓", color:"var(--green)",  bg:"var(--green-bg)",  label:"Complete"},
+  broken:    {icon:"⚠", color:"var(--orange)", bg:"var(--orange-bg)", label:"Broken"},
+  missing:   {icon:"✗", color:"var(--red)",    bg:"var(--red-bg)",    label:"Missing"},
+  location:  {icon:"?", color:"var(--blue)",   bg:"var(--blue-bg)",   label:"Location?"},
+  no_remove: {icon:"⊘", color:"var(--purple)", bg:"var(--purple-bg)", label:"No Remove"},
+  found:     {icon:"✓", color:"var(--green)",  bg:"var(--green-bg)",  label:"Found"},
+  not_there: {icon:"✗", color:"var(--red)",    bg:"var(--red-bg)",    label:"Not There"},
+};
+const PART_PENDING = {icon:"○", color:"var(--text3)", bg:"var(--bg)", label:"Pending"};
+
 async function loadParts(){
   const el = document.getElementById("partsContent");
+  el.innerHTML = `<div class="loading"><div class="spinner"></div>Loading parts…</div>`;
   try{
-    const rows = await query("parts_list","?order=vehicle.asc,created_at.asc");
+    const rows = await query("parts_list","?select=*&order=stock_num.asc.nullslast,id.asc");
+    const stockNums = [...new Set(rows.filter(r=>r.stock_num).map(r=>Number(r.stock_num)))];
+    let vMap = {};
+    if(stockNums.length){
+      const vrows = await query("vehicles",`?stock=in.(${stockNums.join(",")})&select=stock,year,make,model,row`);
+      for(const v of vrows) vMap[v.stock] = v;
+    }
     if(!rows.length){
-      el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>No parts added yet.</div>${partsForm()}`;
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>No parts added yet.</div>${partsFormHtml()}`;
       return;
     }
-    const groups = {};
-    for(const r of rows){ if(!groups[r.vehicle]) groups[r.vehicle]=[]; groups[r.vehicle].push(r); }
-    const found=rows.filter(r=>r.status==="found").length;
-    const notThere=rows.filter(r=>r.status==="not_there").length;
-    const pending=rows.length-found-notThere;
-    let html=`<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
-      <span style="font-size:13px;color:var(--text2)">⏳ <b>${pending}</b> pending</span>
-      <span style="font-size:13px;color:var(--green)">✓ <b>${found}</b> found</span>
-      <span style="font-size:13px;color:var(--red)">✗ <b>${notThere}</b> not there</span>
-      <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);margin-left:auto" onclick="resetAllParts()">Reset All</button>
-    </div>`;
-    for(const [vehicle,parts] of Object.entries(groups)){
-      const stk = parts[0].stock_num ? ` · STK${parts[0].stock_num}` : "";
-      html+=`<div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden">
-        <div style="padding:10px 16px;background:rgba(0,0,0,0.03);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2)">
-          <span style="font-weight:600;font-size:14px">🚗 ${vehicle}${stk}</span>
-          <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red)" onclick="deleteVehicleParts('${vehicle.replace(/'/g,"\\'")}')">Remove</button>
-        </div>`;
-      for(const p of parts){
-        const sc = p.status==="found"?"var(--green-bg);color:var(--green)":p.status==="not_there"?"var(--red-bg);color:var(--red)":"var(--bg);color:var(--text2)";
-        const icon = p.status==="found"?"✓":p.status==="not_there"?"✗":"○";
-        html+=`<div style="padding:10px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border2)">
-          <span style="font-size:18px;width:24px;text-align:center">${icon}</span>
-          <span style="flex:1;font-size:13px">${p.part}</span>
-          <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:${sc}">${p.status}</span>
-          <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 6px" onclick="deletePartItem('${p.id}')">×</button>
-        </div>`;
-      }
-      html+=`</div>`;
+    // Group by stock_num or vehicle text
+    const groupMap = new Map();
+    for(const r of rows){
+      const key = r.stock_num ? `s:${r.stock_num}` : `v:${r.vehicle}`;
+      if(!groupMap.has(key)) groupMap.set(key, {vehicle:r.vehicle, stock_num:r.stock_num, parts:[]});
+      groupMap.get(key).parts.push(r);
     }
-    el.innerHTML = html + partsForm();
-  }catch(e){ el.innerHTML=`<div class="empty">Error loading parts.</div>`+partsForm(); }
+    const groups = [...groupMap.values()];
+    for(const g of groups) g.vinfo = g.stock_num ? vMap[Number(g.stock_num)] : null;
+    // Split WIP vs completed (completed = all parts have a non-pending status)
+    const wip  = groups.filter(g=>g.parts.some(p=>!p.status||p.status==="pending"));
+    const done = groups.filter(g=>g.parts.every(p=>p.status&&p.status!=="pending"));
+    const byRow = arr => arr.sort((a,b)=>(a.vinfo?.row??9999)-(b.vinfo?.row??9999));
+    byRow(wip); byRow(done);
+    const totalParts   = rows.length;
+    const pendingParts = rows.filter(r=>!r.status||r.status==="pending").length;
+    const doneParts    = totalParts - pendingParts;
+    let html = `<div class="parts-toolbar">
+      <div class="parts-stats">
+        <span class="pstat pstat-p">⏳ ${pendingParts} pending</span>
+        <span class="pstat pstat-d">✓ ${doneParts} done</span>
+        <span class="pstat">${totalParts} parts · ${groups.length} vehicles</span>
+      </div>
+      <div class="parts-actions">
+        <button class="btn btn-sm" onclick="exportWhatsApp()" title="Copy pending parts for WhatsApp">📱 WhatsApp</button>
+        <button class="btn btn-sm" onclick="exportCSV()" title="Download CSV for listings / accounting">📊 CSV</button>
+        <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red)" onclick="resetAllParts()">Reset</button>
+      </div>
+    </div>`;
+    if(wip.length){
+      html += `<div class="section-label orange">⏳ In Progress — ${wip.length} vehicle${wip.length>1?"s":""}</div>`;
+      html += wip.map(partsVehicleBlock).join("");
+    }
+    if(done.length){
+      html += `<div class="section-label green">✓ Completed — ${done.length} vehicle${done.length>1?"s":""}</div>`;
+      html += done.map(partsVehicleBlock).join("");
+    }
+    el.innerHTML = html + partsFormHtml();
+  }catch(e){ el.innerHTML=`<div class="empty">Error loading parts: ${e.message}</div>`+partsFormHtml(); }
 }
 
-function partsForm(){
-  return `<div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:16px;margin-top:8px">
-    <div style="font-weight:600;margin-bottom:12px;font-size:14px">➕ Add Parts</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <input id="pVehicle" class="filter-input" placeholder="Vehicle  e.g. 2005 Honda Accord" style="width:100%">
-      <input id="pStock" class="filter-input" placeholder="STK# (optional)" style="width:100%">
+function partsVehicleBlock(g){
+  const v = g.vinfo;
+  const rowStr  = v?.row  ? `Row ${v.row} · ` : "";
+  const stkStr  = g.stock_num ? `STK${g.stock_num}` : "";
+  const nameStr = v ? `${v.year||""} ${v.make||""} ${v.model||""}`.trim() : g.vehicle;
+  const pendCt  = g.parts.filter(p=>!p.status||p.status==="pending").length;
+  const badge   = pendCt>0
+    ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--orange-bg);color:var(--orange)">${pendCt} pending</span>`
+    : `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--green-bg);color:var(--green)">done</span>`;
+  const safeVehicle = g.vehicle.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  let html = `<div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden">
+    <div style="padding:9px 14px;background:var(--surface2);display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border2)">
+      <div style="min-width:0;flex:1">
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${rowStr}${stkStr}</div>
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nameStr}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        ${badge}
+        <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red)" onclick="deleteVehicleParts('${safeVehicle}',${g.stock_num?`'${g.stock_num}'`:"null"})">Remove</button>
+      </div>
+    </div>`;
+  for(const p of g.parts){
+    const s = PART_ST[p.status] || PART_PENDING;
+    const isPending = !p.status || p.status==="pending";
+    const lineThrough = !isPending && (p.status==="complete"||p.status==="found") ? "text-decoration:line-through;color:var(--text3)" : "";
+    html += `<div style="padding:8px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border2)">
+      <span style="font-size:13px;width:20px;text-align:center;flex-shrink:0;color:${isPending?"var(--text3)":s.color}">${s.icon}</span>
+      <span style="flex:1;font-size:12px;${lineThrough}">${p.part}</span>
+      <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:${s.bg};color:${isPending?"var(--text3)":s.color};flex-shrink:0">${s.label}</span>
+      <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 4px;flex-shrink:0;line-height:1" onclick="deletePartItem(${p.id})" title="Remove">×</button>
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function partsFormHtml(){
+  return `<div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+    <div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:16px">
+      <div style="font-weight:600;margin-bottom:12px;font-size:13px">➕ Add Parts to Checklist</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input id="pVehicle" class="filter-input" placeholder="Vehicle  e.g. 2005 Honda Accord" style="width:100%">
+        <input id="pStock"   class="filter-input" placeholder="STK# (optional)" type="number" style="width:100%">
+      </div>
+      <textarea id="pParts" class="filter-input" rows="4" placeholder="Parts — one per line&#10;Driver door&#10;Alternator" style="width:100%;resize:none;line-height:1.6;margin-bottom:8px"></textarea>
+      <button class="btn btn-blue" onclick="addPartsFromDash()">Add to Checklist</button>
     </div>
-    <textarea id="pParts" class="filter-input" rows="4" placeholder="Parts — one per line&#10;Driver door&#10;Alternator" style="width:100%;resize:none;line-height:1.6;margin-bottom:8px"></textarea>
-    <button class="btn btn-blue" onclick="addPartsFromDash()">Add to Checklist</button>
+    <div style="background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:16px">
+      <div style="font-weight:600;margin-bottom:4px;font-size:13px">🚗 Add Vehicle to Tracker</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px">For vehicles not in the scraper — adds to Flagged list &amp; worker checklist</div>
+      <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;margin-bottom:8px">
+        <input id="mvYear"  class="filter-input" placeholder="Year"  type="number" style="width:100%">
+        <input id="mvMake"  class="filter-input" placeholder="Make"  style="width:100%">
+        <input id="mvModel" class="filter-input" placeholder="Model" style="width:100%">
+      </div>
+      <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;margin-bottom:8px">
+        <input id="mvRow" class="filter-input" placeholder="Row #" type="number" style="width:100%">
+        <input id="mvStk" class="filter-input" placeholder="STK# (required)" type="number" style="width:100%">
+      </div>
+      <button class="btn" style="background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange)" onclick="addManualVehicle()">Add to Tracker</button>
+    </div>
   </div>`;
 }
 
 async function addPartsFromDash(){
-  const vehicle = document.getElementById("pVehicle").value.trim();
+  const vehicle  = document.getElementById("pVehicle").value.trim();
   const stockNum = document.getElementById("pStock").value.trim();
   const partsRaw = document.getElementById("pParts").value;
   if(!vehicle){ alert("Enter a vehicle name"); return; }
@@ -876,6 +961,108 @@ async function addPartsFromDash(){
   loadParts();
 }
 
+async function addManualVehicle(){
+  const year   = document.getElementById("mvYear").value.trim();
+  const make   = document.getElementById("mvMake").value.trim();
+  const model  = document.getElementById("mvModel").value.trim();
+  const row    = document.getElementById("mvRow").value.trim();
+  const stkRaw = document.getElementById("mvStk").value.trim();
+  if(!make){ alert("Enter vehicle make"); return; }
+  if(!stkRaw){ alert("STK# is required to add to tracker"); return; }
+  const stock = parseInt(stkRaw);
+  if(isNaN(stock)){ alert("STK# must be a number"); return; }
+  const today = new Date().toISOString().slice(0,10);
+  const vehicleData = {stock, first_seen_date:today, is_active:true};
+  if(year)  vehicleData.year  = parseInt(year);
+  if(make)  vehicleData.make  = make;
+  if(model) vehicleData.model = model;
+  if(row)   vehicleData.row   = parseInt(row);
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicles?on_conflict=stock`,{
+    method:"POST",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
+    body: JSON.stringify(vehicleData)
+  });
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?on_conflict=stock`,{
+    method:"POST",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
+    body: JSON.stringify({stock, flag:"interested", note:"", updated_at:new Date().toISOString()})
+  });
+  _flagCache[stock] = {flag:"interested", note:""};
+  alert(`Added ${[year,make,model].filter(Boolean).join(" ")} STK${stock} to tracker.\nNow add parts using the form below.`);
+  loadParts();
+}
+
+async function _loadPartsData(){
+  const rows = await query("parts_list","?select=*&order=stock_num.asc.nullslast,id.asc");
+  const stockNums = [...new Set(rows.filter(r=>r.stock_num).map(r=>Number(r.stock_num)))];
+  let vMap = {};
+  if(stockNums.length){
+    const vrows = await query("vehicles",`?stock=in.(${stockNums.join(",")})&select=stock,year,make,model,row`);
+    for(const v of vrows) vMap[v.stock] = v;
+  }
+  return {rows, vMap};
+}
+
+function exportWhatsApp(){
+  _buildWhatsAppText().then(txt=>{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt)
+        .then(()=>alert("Copied to clipboard! Paste into WhatsApp."))
+        .catch(()=>prompt("Copy this text and paste into WhatsApp:", txt));
+    } else {
+      prompt("Copy this text and paste into WhatsApp:", txt);
+    }
+  });
+}
+
+async function _buildWhatsAppText(){
+  const {rows, vMap} = await _loadPartsData();
+  const pending = rows.filter(r=>!r.status||r.status==="pending");
+  if(!pending.length) return "No pending parts.";
+  const groupMap = new Map();
+  for(const r of pending){
+    const key = r.stock_num ? `s:${r.stock_num}` : `v:${r.vehicle}`;
+    if(!groupMap.has(key)) groupMap.set(key, {vehicle:r.vehicle, stock_num:r.stock_num, parts:[], vinfo:r.stock_num?vMap[Number(r.stock_num)]:null});
+    groupMap.get(key).parts.push(r);
+  }
+  const groups = [...groupMap.values()].sort((a,b)=>(a.vinfo?.row??9999)-(b.vinfo?.row??9999));
+  const d = new Date();
+  const dayStr = d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+  let txt = `📋 Parts — ${dayStr}`;
+  for(const g of groups){
+    const v = g.vinfo;
+    const rowStr  = v?.row ? `Row ${v.row} — ` : "";
+    const nameStr = v ? `${v.year||""} ${v.make||""} ${v.model||""}`.trim() : g.vehicle;
+    const stkStr  = g.stock_num ? ` (STK${g.stock_num})` : "";
+    txt += `\n\n🔹 ${rowStr}${nameStr}${stkStr}`;
+    for(const p of g.parts) txt += `\n  • ${p.part}`;
+  }
+  return txt;
+}
+
+function exportCSV(){
+  _buildCSV().then(csv=>{
+    const blob = new Blob([csv],{type:"text/csv"});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `parts-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  });
+}
+
+async function _buildCSV(){
+  const {rows, vMap} = await _loadPartsData();
+  const esc = s => `"${(s||"").replace(/"/g,'""')}"`;
+  let csv = "Date Added,Vehicle,Stock,Row,Part,Status\n";
+  for(const r of rows){
+    const v    = r.stock_num ? vMap[Number(r.stock_num)] : null;
+    const date = r.created_at ? r.created_at.slice(0,10) : "";
+    const name = v ? `${v.year||""} ${v.make||""} ${v.model||""}`.trim() : r.vehicle;
+    csv += [esc(date), esc(name), esc(r.stock_num||""), esc(v?.row?.toString()||""), esc(r.part), esc(r.status||"pending")].join(",") + "\n";
+  }
+  return csv;
+}
+
 async function deletePartItem(id){
   await fetch(`${SUPABASE_URL}/rest/v1/parts_list?id=eq.${id}`,{
     method:"DELETE", headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
@@ -883,16 +1070,17 @@ async function deletePartItem(id){
   loadParts();
 }
 
-async function deleteVehicleParts(vehicle){
+async function deleteVehicleParts(vehicle, stockNum){
   if(!confirm(`Remove all parts for "${vehicle}"?`)) return;
-  await fetch(`${SUPABASE_URL}/rest/v1/parts_list?vehicle=eq.${encodeURIComponent(vehicle)}`,{
+  const filter = stockNum ? `stock_num=eq.${stockNum}` : `vehicle=eq.${encodeURIComponent(vehicle)}`;
+  await fetch(`${SUPABASE_URL}/rest/v1/parts_list?${filter}`,{
     method:"DELETE", headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
   });
   loadParts();
 }
 
 async function resetAllParts(){
-  if(!confirm("Reset all statuses to pending?")) return;
+  if(!confirm("Reset all part statuses to pending?")) return;
   await fetch(`${SUPABASE_URL}/rest/v1/parts_list?status=neq.pending`,{
     method:"PATCH",
     headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
