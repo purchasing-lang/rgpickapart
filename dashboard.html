@@ -1086,7 +1086,7 @@ async function loadFlagged(){
       return `<div class="flag-card ${isIncorrect?'flag-incorrect':''}" id="fcard-${stock}">
         <div class="flag-card-header">
           <div class="flag-card-info">
-            <span class="flag-card-stock">STK${stock}</span>
+            <span class="flag-card-stock">${stock>0?`STK${stock}`:v.first_seen_date||"manual"}</span>
             <span class="flag-card-title">${vname}</span>
             ${v.row?`<span class="flag-card-meta">Row ${v.row}</span>`:""}
             ${days!==null?`<span class="flag-card-meta">${days}d on lot</span>`:""}
@@ -1116,9 +1116,10 @@ async function loadFlagged(){
     }
 
     const pendingCt=allParts.filter(p=>!p.status||p.status==="pending").length;
-    let html=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green)" onclick="exportWhatsApp()">📱 Send to Worker${pendingCt?" ("+pendingCt+" pending)":""}</button>
-      <button class="btn btn-sm" onclick="toggleManualForm()">＋ Add Vehicle</button>
+    let html=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <input id="flagSearch" class="filter-input" placeholder="Search vehicles…" style="flex:1;min-width:120px" oninput="filterFlagCards(this.value)">
+      <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green)" onclick="exportWhatsApp()">📱 Send to Worker${pendingCt?" ("+pendingCt+")":""}</button>
+      <button class="btn btn-sm" onclick="toggleManualForm()">＋ Add</button>
     </div>
     ${manualVehicleFormHtml()}`;
     const interested=activeStocks.filter(s=>(flags[s]||flags[String(s)])==="interested");
@@ -1175,7 +1176,8 @@ async function addPartInline(stock, vname){
   const part=input.value.trim(); if(!part) return;
   input.value="";
   await upsertRow("parts_list",[{vehicle:vname,part,stock_num:String(stock),status:"pending"}]);
-  reloadFcardParts(stock,vname);
+  await reloadFcardParts(stock,vname);
+  document.getElementById(`fp-${stock}`)?.focus(); // restore focus so next part can be typed immediately
 }
 
 async function deletePartInline(id,stock,vname){
@@ -1184,45 +1186,45 @@ async function deletePartInline(id,stock,vname){
 }
 
 function manualVehicleFormHtml(){
-  return `<div id="manualVehicleForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px">
-    <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--text2)">Add Vehicle Not in Scraper</div>
-    <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:6px;margin-bottom:6px">
-      <input id="mvYear"  class="filter-input" placeholder="Year"  type="number" style="width:100%">
-      <input id="mvMake"  class="filter-input" placeholder="Make"  style="width:100%">
-      <input id="mvModel" class="filter-input" placeholder="Model" style="width:100%">
-    </div>
-    <div style="display:grid;grid-template-columns:80px 1fr;gap:6px;margin-bottom:10px">
-      <input id="mvRow" class="filter-input" placeholder="Row #" type="number" style="width:100%">
-      <input id="mvStk" class="filter-input" placeholder="STK# (required)" type="number" style="width:100%">
-    </div>
+  return `<div id="manualVehicleForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Vehicle not in scraper — type the full name</div>
     <div style="display:flex;gap:6px">
-      <button class="btn btn-sm" style="background:var(--orange-bg);color:var(--orange)" onclick="addManualVehicle()">Add to Flagged</button>
-      <button class="btn btn-sm" onclick="toggleManualForm()">Cancel</button>
+      <input id="mvName" class="filter-input" placeholder="2014 Honda Accord" style="flex:1"
+        onkeydown="if(event.key==='Enter')addManualVehicle()">
+      <button class="btn btn-sm" style="background:var(--orange-bg);color:var(--orange)" onclick="addManualVehicle()">Add</button>
+      <button class="btn btn-sm" onclick="toggleManualForm()">✕</button>
     </div>
   </div>`;
 }
 
 function toggleManualForm(){
   const f=document.getElementById("manualVehicleForm"); if(!f) return;
-  f.style.display=f.style.display==="none"?"block":"none";
+  const open = f.style.display==="none";
+  f.style.display=open?"block":"none";
+  if(open) document.getElementById("mvName")?.focus();
+}
+
+function filterFlagCards(q){
+  const s=q.trim().toLowerCase();
+  document.querySelectorAll(".flag-card[id^='fcard-']").forEach(card=>{
+    if(!s){ card.style.display=""; return; }
+    const text=(card.querySelector(".flag-card-title")?.textContent||"").toLowerCase()
+              +(card.querySelector(".flag-card-stock")?.textContent||"").toLowerCase();
+    card.style.display=text.includes(s)?"":"none";
+  });
 }
 
 async function addManualVehicle(){
-  const year=document.getElementById("mvYear").value.trim();
-  const make=document.getElementById("mvMake").value.trim();
-  const model=document.getElementById("mvModel").value.trim();
-  const row=document.getElementById("mvRow").value.trim();
-  const stkRaw=document.getElementById("mvStk").value.trim();
-  if(!make){ alert("Enter vehicle make"); return; }
-  if(!stkRaw){ alert("STK# is required"); return; }
-  const stock=parseInt(stkRaw);
-  if(isNaN(stock)){ alert("STK# must be a number"); return; }
-  const today=new Date().toISOString().slice(0,10);
-  const vd={stock,first_seen_date:today,is_active:true};
-  if(year) vd.year=parseInt(year); if(make) vd.make=make; if(model) vd.model=model; if(row) vd.row=parseInt(row);
-  await fetch(`${SUPABASE_URL}/rest/v1/vehicles?on_conflict=stock`,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(vd)});
+  const nameRaw=(document.getElementById("mvName")?.value||"").trim();
+  if(!nameRaw){ alert("Enter vehicle description"); return; }
+  // Auto-generate a unique negative stock number (won't conflict with real lot stocks)
+  const stock = -(Math.floor(Date.now()/1000) % 2000000000);
+  const today = new Date().toISOString().slice(0,10);
+  await fetch(`${SUPABASE_URL}/rest/v1/vehicles?on_conflict=stock`,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({stock,make:nameRaw,first_seen_date:today,is_active:true})});
   await fetch(`${SUPABASE_URL}/rest/v1/vehicle_flags?on_conflict=stock`,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({stock,flag:"interested",note:"",updated_at:new Date().toISOString()})});
-  _flagCache[stock]={flag:"interested",note:""};
+  _flagCache[stock]={flag:"interested",note:"",archived:false};
+  document.getElementById("mvName").value="";
+  toggleManualForm();
   loadFlagged();
 }
 
