@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RG Worker">
+<meta name="theme-color" content="#f2f2f7">
 <title>RG Worker</title>
 <style>
 :root{
@@ -106,6 +109,7 @@ header{
   <div class="counts">
     <span class="cpill cp-p" id="cPend">—</span>
     <span class="cpill cp-d" id="cDone">—</span>
+    <button onclick="load()" style="background:none;border:1px solid rgba(0,0,0,.12);border-radius:20px;font-size:10px;font-weight:700;padding:2px 8px;cursor:pointer;color:var(--text2)">↻</button>
   </div>
 </header>
 
@@ -125,11 +129,12 @@ async function get(path){
   return r.json();
 }
 async function patchDB(table,filter,body){
-  await fetch(`${SURL}/rest/v1/${table}?${filter}`,{
+  const r = await fetch(`${SURL}/rest/v1/${table}?${filter}`,{
     method:"PATCH",
     headers:{...H,"Content-Type":"application/json","Prefer":"return=minimal"},
     body:JSON.stringify(body)
   });
+  if(!r.ok){ const t=await r.text(); console.error("patchDB failed:",t); throw new Error(t); }
 }
 
 // status config — 3 buttons for the worker
@@ -248,6 +253,9 @@ async function tapPart(id, statusKey){
 }
 
 load();
+
+// Auto-refresh when phone wakes or user switches back to this tab
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") load(); });
 </script>
 </body>
 </html>

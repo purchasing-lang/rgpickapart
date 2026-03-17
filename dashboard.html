@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RG Dashboard">
+<meta name="theme-color" content="#f2f2f7">
 <title>RG Pick-A-Part</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -933,7 +936,7 @@ function partsVehicleBlock(g){
       <span style="font-size:13px;width:20px;text-align:center;flex-shrink:0;color:${isPending?"var(--text3)":s.color}">${s.icon}</span>
       <span style="flex:1;font-size:12px;${lineThrough}">${p.part}</span>
       <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:${s.bg};color:${isPending?"var(--text3)":s.color};flex-shrink:0">${s.label}</span>
-      <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 4px;flex-shrink:0;line-height:1" onclick="deletePartItem(${p.id})" title="Remove">×</button>
+      <button style="background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--text3);font-size:11px;font-weight:700;padding:2px 6px;flex-shrink:0;line-height:1.4" onmouseover="this.style.background='var(--red-bg)';this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.background='none';this.style.color='var(--text3)';this.style.borderColor='var(--border)'" onclick="deletePartItem(${p.id})" title="Remove part">✕</button>
     </div>`;
   }
   html += `</div>`;
@@ -1151,7 +1154,7 @@ function renderFcardParts(stock, vname, parts){
         <span style="font-size:12px;width:16px;text-align:center;flex-shrink:0;color:${isPending?"var(--text3)":s.color}">${s.icon}</span>
         <span style="flex:1;font-size:12px;${crossed?"text-decoration:line-through;color:var(--text3)":""}">${p.part}</span>
         ${!isPending?`<span style="font-size:10px;padding:1px 6px;border-radius:20px;background:${s.bg};color:${s.color};flex-shrink:0">${s.label}</span>`:""}
-        <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px;line-height:1;flex-shrink:0" onclick="deletePartInline(${p.id},${stock},'${sv}')">×</button>
+        <button style="background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--text3);font-size:11px;font-weight:700;padding:2px 6px;flex-shrink:0;line-height:1.4" onmouseover="this.style.background='var(--red-bg)';this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.background='none';this.style.color='var(--text3)';this.style.borderColor='var(--border)'" onclick="deletePartInline(${p.id},${stock},'${sv}')" title="Remove part">✕</button>
       </div>`;
     }
   } else {
@@ -1425,7 +1428,21 @@ async function loadAll(){
     preloadAll(),
   ]);
   updateFlaggedCount();
+  // Refresh active tab content so worker changes show up immediately
+  if(currentTab==="flagged") loadFlagged();
+  if(currentTab==="parts")   loadParts();
 }
+
+// Auto-refresh when phone wakes up or user switches back to this tab
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"){
+    loadFlags().then(()=>{
+      updateFlaggedCount();
+      if(currentTab==="flagged") loadFlagged();
+      if(currentTab==="parts")   loadParts();
+    });
+  }
+});
 
 initOffset();
 loadAll();
