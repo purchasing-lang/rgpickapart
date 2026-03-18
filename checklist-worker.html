@@ -190,6 +190,7 @@ function render(){
 
 function vBlock(item){
   const v=item.vehicle, done=item.checklist_status==="complete";
+  const vname=`${v.year||""} ${v.make||""} ${v.model||""}`.trim().replace(/'/g,"\\'");
   const partsHtml = item.parts.length
     ? item.parts.map(partRow).join("")
     : `<div class="no-parts">No parts — add in dashboard Parts tab</div>`;
@@ -201,7 +202,7 @@ function vBlock(item){
       </div>
       <button class="done-btn${done?" on":""}" onclick="tapDone(${item.stock})">${done?"✓ Done":"Done"}</button>
       <button class="cam-btn" onclick="triggerPhoto(${item.stock})" title="Add photo">📷</button>
-      <input type="file" id="fi-${item.stock}" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(${item.stock},this)">
+      <input type="file" id="fi-${item.stock}" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(${item.stock},'${vname}',this)">
     </div>
     ${item.note?`<div class="vnote">${esc(item.note)}</div>`:""}
     ${partsHtml}
@@ -263,13 +264,15 @@ async function tapPart(id, statusKey){
 
 function triggerPhoto(stock){ document.getElementById('fi-'+stock)?.click(); }
 
-async function handlePhoto(stock, input){
+async function handlePhoto(stock, vname, input){
   const file=input.files[0]; if(!file) return;
   const btn=document.querySelector(`#vb-${stock} .cam-btn`);
   if(btn){btn.textContent='⏳';btn.disabled=true;}
   try{
     const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
-    const path=`${stock}/${Date.now()}.${ext}`;
+    const date=new Date().toISOString().slice(0,10);
+    const safeName=(vname||String(stock)).replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-');
+    const path=`${date}_STK${stock}_${safeName}_${Date.now()}.${ext}`;
     const up=await fetch(`${SURL}/storage/v1/object/photos/${path}`,{
       method:'POST',headers:{...H,'Content-Type':file.type||'image/jpeg'},body:file});
     if(!up.ok) throw new Error(await up.text());
