@@ -211,9 +211,10 @@ function vBlock(item){
 function partRow(p){
   const st=p.status||"pending";
   const icon=ST_ICON[st]||"○";
-  const btns=ST.map(s=>`<button type="button" class="pb${st===s.k?" "+s.cls:""}" onclick="tapPart(${p.id},'${s.k}')">${s.icon} ${s.label}</button>`).join("");
+  const btns=ST.map(s=>`<button type="button" class="pb${st===s.k?" "+s.cls:""}" onclick="tapPart('${p.id}','${s.k}')">${s.icon} ${s.label}</button>`).join("");
   const nameCls=st==="complete"?"done":st==="missing"||st==="no_remove"?"faded":"";
-  return `<div class="pr" id="pr-${p.id}">
+  const safeId=String(p.id).replace(/[^a-zA-Z0-9_-]/g,"_");
+  return `<div class="pr" id="pr-${safeId}">
     <span class="ps">${icon}</span>
     <span class="pn${nameCls?" "+nameCls:""}">${esc(p.part)}</span>
     <div class="pbtns">${btns}</div>
@@ -243,17 +244,18 @@ async function tapDone(stock){
 
 async function tapPart(id, statusKey){
   let part=null;
-  for(const item of items){ part=item.parts.find(p=>p.id===id); if(part) break; }
+  for(const item of items){ part=item.parts.find(p=>String(p.id)===String(id)); if(part) break; }
   if(!part) return;
   const ns=part.status===statusKey?"pending":statusKey;
   part.status=ns;
-  const row=document.getElementById(`pr-${id}`);
+  const safeId=String(id).replace(/[^a-zA-Z0-9_-]/g,"_");
+  const row=document.getElementById(`pr-${safeId}`);
   if(row){
     const icon=row.querySelector(".ps"), name=row.querySelector(".pn");
     if(icon) icon.textContent=ST_ICON[ns]||"○";
     if(name){ name.className="pn"; if(ns==="complete") name.classList.add("done"); else if(ns==="missing"||ns==="no_remove") name.classList.add("faded"); }
     const btnsEl=row.querySelector(".pbtns");
-    if(btnsEl) btnsEl.innerHTML=ST.map(s=>`<button type="button" class="pb${ns===s.k?" "+s.cls:""}" onclick="tapPart(${id},'${s.k}')">${s.icon} ${s.label}</button>`).join("");
+    if(btnsEl) btnsEl.innerHTML=ST.map(s=>`<button type="button" class="pb${ns===s.k?" "+s.cls:""}" onclick="tapPart('${id}','${s.k}')">${s.icon} ${s.label}</button>`).join("");
   }
   try{ await patchDB("parts_list",`id=eq.${id}`,{status:ns}); }
   catch(e){ alert("Save error: "+e.message); }
