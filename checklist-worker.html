@@ -279,7 +279,8 @@ async function handlePhoto(stock, vname, input){
     const tmp=new Date(now); tmp.setHours(0,0,0,0); tmp.setDate(tmp.getDate()+4-(tmp.getDay()||7));
     const wk=String(Math.ceil((((tmp-new Date(tmp.getFullYear(),0,1))/86400000)+1)/7)).padStart(2,'0');
     const safeName=(vname||String(stock)).replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-');
-    const path=`${yr}/${yr}-${mo}/${yr}-W${wk}/${date}/${date}_STK${stock}_${safeName}_${Date.now()}.${ext}`;
+    const folder=`${yr}/${yr}-${mo}/${yr}-W${wk}/${date}/STK${stock}_${safeName}`;
+    const path=`${folder}/${date}_${Date.now()}.${ext}`;
     const up=await fetch(`${SURL}/storage/v1/object/photos/${path}`,{
       method:'POST',headers:{...H,'Content-Type':file.type||'image/jpeg'},body:file});
     if(!up.ok) throw new Error(await up.text());

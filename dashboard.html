@@ -1137,8 +1137,13 @@ async function loadFlagged(){
     if(interested.length){ html+=`<div class="section-label orange">⭐ Interested — ${interested.length}</div>`+interested.map(flagCard).join(""); }
     if(worked.length){ html+=`<div class="section-label" style="color:var(--green)">✓ Worked On — ${worked.length}</div>`+worked.map(flagCard).join(""); }
     if(incorrectStocks.length){ html+=`<div class="section-label red">✗ Incorrect — ${incorrectStocks.length}</div>`+incorrectStocks.map(flagCard).join(""); }
-    html+=`<div style="margin-top:16px;text-align:center">
+    html+=`<div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="toggleRecentPhotos()" style="color:var(--blue)">📷 Recent Photos</button>
       <button class="btn btn-sm" onclick="toggleArchive()" style="color:var(--text3)">📦 Archive</button>
+    </div>
+    <div id="recentPhotosSection" style="display:none;margin-top:10px">
+      <div class="section-label" style="color:var(--blue)">📷 Photos — Last 7 Days</div>
+      <div id="recentPhotosContent"><div class="loading" style="padding:16px"><div class="spinner"></div></div></div>
     </div>
     <div id="archiveSection" style="display:none;margin-top:10px">
       <div class="section-label">📦 Archived</div>
@@ -1297,6 +1302,57 @@ async function unarchiveVehicle(stock){
   });
   if(_flagCache[stock]) _flagCache[stock].archived=false;
   loadFlagged();
+}
+
+function toggleRecentPhotos(){
+  const sec=document.getElementById("recentPhotosSection"); if(!sec) return;
+  if(sec.style.display==="none"){ sec.style.display="block"; loadRecentPhotos(); }
+  else sec.style.display="none";
+}
+
+async function loadRecentPhotos(){
+  const el=document.getElementById("recentPhotosContent"); if(!el) return;
+  el.innerHTML=`<div class="loading" style="padding:16px"><div class="spinner"></div></div>`;
+  try{
+    const since=new Date(Date.now()-7*86400000).toISOString();
+    const photos=await query("vehicle_photos",`?uploaded_at=gte.${since}&select=*&order=uploaded_at.desc`);
+    if(!photos.length){ el.innerHTML=`<div style="padding:14px;font-size:12px;color:var(--text3)">No photos in the last 7 days.</div>`; return; }
+
+    const stocks=[...new Set(photos.map(p=>p.stock_num).filter(Boolean))];
+    let vMap={};
+    try{
+      const vrows=await query("vehicles",`?stock=in.(${stocks.join(",")})&select=stock,year,make,model`);
+      for(const v of vrows) vMap[String(v.stock)]=v;
+    }catch(e){}
+
+    // Group by date, then by stock
+    const byDate={};
+    for(const p of photos){
+      const date=p.uploaded_at.slice(0,10);
+      if(!byDate[date]) byDate[date]={};
+      if(!byDate[date][p.stock_num]) byDate[date][p.stock_num]=[];
+      byDate[date][p.stock_num].push(p);
+    }
+
+    let html="";
+    for(const date of Object.keys(byDate).sort().reverse()){
+      const label=new Date(date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+      html+=`<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;padding:10px 14px 4px">${label}</div>`;
+      for(const [sn, sPhotos] of Object.entries(byDate[date])){
+        const v=vMap[sn];
+        const vname=v?`${v.year||""} ${v.make||""} ${v.model||""}`.trim():`STK${sn}`;
+        html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:4px 14px 8px;padding:10px 12px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:8px">${vname} <span style="color:var(--text3);font-size:11px;font-family:var(--mono)">STK${sn}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">`;
+        for(const p of sPhotos){
+          const time=new Date(p.uploaded_at).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+          html+=`<a href="${p.photo_url}" target="_blank" title="${time}"><img src="${p.photo_url}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block" loading="lazy"></a>`;
+        }
+        html+=`</div></div>`;
+      }
+    }
+    el.innerHTML=html;
+  }catch(e){ el.innerHTML=`<div style="padding:10px;font-size:12px;color:var(--red)">${e.message}</div>`; }
 }
 
 function toggleArchive(){
