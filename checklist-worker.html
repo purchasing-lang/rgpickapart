@@ -270,9 +270,16 @@ async function handlePhoto(stock, vname, input){
   if(btn){btn.textContent='⏳';btn.disabled=true;}
   try{
     const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
-    const date=new Date().toISOString().slice(0,10);
+    const now=new Date();
+    const yr=now.getFullYear();
+    const mo=String(now.getMonth()+1).padStart(2,'0');
+    const dy=String(now.getDate()).padStart(2,'0');
+    const date=`${yr}-${mo}-${dy}`;
+    // ISO week number
+    const tmp=new Date(now); tmp.setHours(0,0,0,0); tmp.setDate(tmp.getDate()+4-(tmp.getDay()||7));
+    const wk=String(Math.ceil((((tmp-new Date(tmp.getFullYear(),0,1))/86400000)+1)/7)).padStart(2,'0');
     const safeName=(vname||String(stock)).replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-');
-    const path=`${date}_STK${stock}_${safeName}_${Date.now()}.${ext}`;
+    const path=`${yr}/${yr}-${mo}/${yr}-W${wk}/${date}/${date}_STK${stock}_${safeName}_${Date.now()}.${ext}`;
     const up=await fetch(`${SURL}/storage/v1/object/photos/${path}`,{
       method:'POST',headers:{...H,'Content-Type':file.type||'image/jpeg'},body:file});
     if(!up.ok) throw new Error(await up.text());
